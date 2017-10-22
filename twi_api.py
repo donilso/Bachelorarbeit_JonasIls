@@ -1,18 +1,18 @@
 print("hello world")
 print("hallo jonas")
 
-#--------------------------
+# --------------------------
 # 1. Twitter API
-#--------------------------
+# --------------------------
 
 import re
 import tweepy
 from tweepy import OAuthHandler
-from textblob import TextBlob #todo solve reference problem
+from textblob import TextBlob
+
 
 # Class constructor or initialization method.
 class TwitterClient(object):
-
     # Class constructor or initialization method.
     def __init__(self):
         consumer_key = "8Ca3VZdZ8FAHBQHY5Q4JqQJ95"
@@ -20,7 +20,7 @@ class TwitterClient(object):
         access_token = "912230531089223680-0UiOqekdECbqtKtHaPF2mnZVejrgmb5"
         access_secret = "SCGpxSkF5jwszN59etpVRKs4B9oi5wbCFysQIW1MgDmMD"
 
-# attempt authentication
+        # attempt authentication
         try:
             # create OAuthHandler object
             self.auth = OAuthHandler(consumer_key, consumer_secret)
@@ -31,25 +31,24 @@ class TwitterClient(object):
         except:
             print("Error: Authentication Failed")
 
-# ---------------------------
-# 2. Tweets sammeln und aufbereiten
-# ---------------------------
+        # ---------------------------
+        # 2. Tweets sammeln und aufbereiten
+        # ---------------------------
 
-    def clean_tweet(self, tweet):
+    def __clean_tweet__(self, tweet):
         '''
         Utility function to clean tweet text by removing links, special characters
         using simple regex statements.
         '''
         return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)", " ", tweet).split())
 
-
-    def get_tweet_sentiment(self, tweet):
+    def __get_tweet_sentiment__(self, tweet):
         '''
         Utility function to classify sentiment of passed tweet
         using textblob's sentiment method
         '''
         # create TextBlob object of passed tweet text
-        analysis = TextBlob(self.clean_tweet(tweet))
+        analysis = TextBlob(self.__clean_tweet__(tweet))
         # set sentiment
         if analysis.sentiment.polarity > 0:
             return 'positive'
@@ -58,13 +57,12 @@ class TwitterClient(object):
         else:
             return 'negative'
 
-    # --------------------------------------------------------
-    # -------------------------------------------------------- todo
-    def get_tweet_datetime(self, tweet):
-        '''function to add Timestamp to the tweet'''
-        tweet_datetime = tweet[0]['created_at']
-    # --------------------------------------------------------
-    # --------------------------------------------------------
+    def __get_tweet_datetime__(self, tweet):
+        '''
+        Utility function to get datetime for tweet
+        '''
+        tweet = tweets[0]
+        print(tweet.created_at)
 
     def get_tweets(self, query, count=10):
         '''
@@ -85,14 +83,10 @@ class TwitterClient(object):
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
                 # saving sentiment of tweet
-                parsed_tweet['sentiment'] = self.get_tweet_sentiment(tweet.text)
-
-                # --------------------------------------------------------
-                # -------------------------------------------------------- todo
+                parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
                 # saving datetime of tweet
-                parsed_tweet['datetime'] = tweet_datetime
-                # --------------------------------------------------------
-                # --------------------------------------------------------
+                parsed_tweet['datetime'] = self.__get_tweet_datetime__
+
 
                 # appending parsed tweet to tweets list
                 if tweet.retweet_count > 0:
@@ -109,6 +103,7 @@ class TwitterClient(object):
             # print error (if any)
             print("Error : " + str(e))
 
+
 # ----------------------
 # 3. Main Function
 # ----------------------
@@ -116,7 +111,7 @@ def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
-    tweets = api.get_tweets(query=query, count=count)
+    tweets = api.get_tweets(query="$Appl", count=100)
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
     # percentage of positive tweets
@@ -127,25 +122,15 @@ def main():
     print("Negative tweets percentage: {} %".format(100 * len(ntweets) / len(tweets)))
     # percentage of neutral tweets
     print("Neutral tweets percentage: {} % \
-        ".format(100 * len(tweets - ntweets - ptweets) / len(tweets)))
+        ".format(100 * (len(tweets) - len(ntweets) - len(ptweets)) / len(tweets)))
     # todo use stock tickers
 
     # printing first 5 positive tweets
     print("\n\nPositive tweets:")
     for tweet in ptweets[:10]:
-        print(tweet['text'])
+        print(tweet['text', 'datetime'])
 
     # printing first 5 negative tweets
     print("\n\nNegative tweets:")
     for tweet in ntweets[:10]:
-        print(tweet['text'])
-
-
-if __name__ == "__main__":
-    # calling main function
-    main()
-
-
-# -----------------
-# -----------------
-
+        print(tweet['text', 'datetime'])
