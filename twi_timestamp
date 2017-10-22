@@ -1,0 +1,52 @@
+import tweepy
+import time
+import _datetime
+from tweepy import OAuthHandler
+from tweepy import Stream
+from tweepy.streaming import StreamListener
+import string
+from nltk.corpus import stopwords
+from nltk.tokenize import TweetTokenizer
+
+class TwitterClient(object):
+
+    # Class constructor or initialization method.
+    def __init__(self):
+        consumer_key = "8Ca3VZdZ8FAHBQHY5Q4JqQJ95"
+        consumer_secret = "jAooexmkwG8QxW8ODcK8FqNB5ZLVqaoqA5lgfINqucJYMuNoJE"
+        access_token = "912230531089223680-0UiOqekdECbqtKtHaPF2mnZVejrgmb5"
+        access_secret = "SCGpxSkF5jwszN59etpVRKs4B9oi5wbCFysQIW1MgDmMD"
+
+# attempt authentication
+        try:
+            # create OAuthHandler object
+            self.auth = OAuthHandler(consumer_key, consumer_secret)
+            # set access token and secret
+            self.auth.set_access_token(access_token, access_secret)
+            # create tweepy API object to fetch tweets
+            self.api = tweepy.API(self.auth)
+        except:
+            print("Error: Authentication Failed")
+
+class MyListener(StreamListener):
+
+    def on_data(self, data):
+        try:
+            tweet=data.split('","text":"')[1].split('","source":"')[0]
+            saveThis=str(time.time())+'::'+tweet
+            with open('twitDB.csv', 'a') as f:
+                f.write(saveThis)
+                f.write('\n')
+                f.close()
+                return True
+        except BaseException as e:
+            print(str(e))
+        return True
+
+    def on_error(self, status):
+        print(status)
+        return True
+
+
+twitter_stream = Stream(auth, MyListener())
+twitter_stream.filter(track=['cars'], languages=['en'])
