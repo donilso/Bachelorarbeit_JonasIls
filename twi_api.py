@@ -5,6 +5,7 @@ print("hallo jonas")
 # 1. Twitter API
 # --------------------------
 
+import pytz
 import re
 import tweepy
 from tweepy import OAuthHandler
@@ -63,6 +64,7 @@ class TwitterClient(object):
         '''
         # empty list to store parsed tweets
         tweets = []
+        tz = pytz.timezone('US/Central')
 
         try:
             # call twitter api to fetch tweets
@@ -78,6 +80,7 @@ class TwitterClient(object):
                 # saving sentiment of tweet
                 parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
                 parsed_tweet ['datetime'] = tweet.created_at
+                parsed_tweet ['datetime_adjusted'] = tz.localize(tweet.created_at)
 
                 # appending parsed tweet to tweets list
                 if tweet.retweet_count > 0:
@@ -86,6 +89,15 @@ class TwitterClient(object):
                         tweets.append(parsed_tweet)
                 else:
                     tweets.append(parsed_tweet)
+# todo tweets außerhalb der Börsenöffnungszeiten aussortieren
+# todo dafür muss datetime_adjusted auf time reduziert werden und ohne Zeitdifferenz ausgegebene werden
+#                       intime_tweet = []
+#                       if parsed_tweet.created_at > 09:00:00 and parsed_tweet.created_at < 18:00:00
+#                           parsed_tweets.append(intime_tweet)
+#
+#
+#                       else:
+
 
             # return parsed tweets
             return tweets
@@ -126,23 +138,23 @@ def main():
     sentiment_overview = [sentiment_positive, sentiment_negative, sentiment_neutral]
     print(sentiment_overview)
 
-    # printing first 5 positive tweets
+    # printing positive tweets
     print("\n\nPositive tweets:")
-    for tweet in ptweets[:10]:
+    for tweet in ptweets:
         print(tweet['text'])
-        print(tweet['datetime'])
+        print(tweet['datetime_adjusted'])
 
-    # printing first 5 negative tweets
+    # printing negative tweets
     print("\n\nNegative tweets:")
-    for tweet in ntweets[:10]:
+    for tweet in ntweets:
         print(tweet['text'])
-        print(tweet['datetime'])
+        print(tweet['datetime_adjusted'])
 
-    # printing first 5 neutral tweets
+    # printing neutral tweets
     print ( "\n\nNeutral tweets")
-    for tweet in neutweets [:10]:
+    for tweet in neutweets:
         print(tweet['text'])
-        print(tweet['datetime'])
+        print(tweet['datetime_adjusted'])
 
     # saving results in csv-file
     f = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
