@@ -57,13 +57,6 @@ class TwitterClient(object):
         else:
             return 'negative'
 
-    def __get_tweet_datetime__(self, tweet):
-        '''
-        Utility function to get datetime for tweet
-        '''
-        tweet = tweets[0]
-        print(tweet.created_at)
-
     def get_tweets(self, query, count=10):
         '''
         Main function to fetch tweets and parse them.
@@ -84,9 +77,7 @@ class TwitterClient(object):
                 parsed_tweet['text'] = tweet.text
                 # saving sentiment of tweet
                 parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
-                # saving datetime of tweet
-                parsed_tweet['datetime'] = self.__get_tweet_datetime__
-
+                parsed_tweet ['datetime'] = tweet.created_at
 
                 # appending parsed tweet to tweets list
                 if tweet.retweet_count > 0:
@@ -111,26 +102,62 @@ def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
-    tweets = api.get_tweets(query="$Appl", count=100)
+    tweets = api.get_tweets(query="$Appl", count=10000)
+
+
+
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
     # percentage of positive tweets
-    print("Positive tweets percentage: {} %".format(100 * len(ptweets) / len(tweets)))
+    sentiment_positive = "Positive tweets percentage: {} %".format(100 * len(ptweets) / len(tweets))
+
     # picking negative tweets from tweets
     ntweets = [tweet for tweet in tweets if tweet['sentiment'] == 'negative']
     # percentage of negative tweets
-    print("Negative tweets percentage: {} %".format(100 * len(ntweets) / len(tweets)))
+    sentiment_negative = "Negative tweets percentage: {} %".format(100 * len(ntweets) / len(tweets))
+
+    # picking neutral tweets from tweets
+    neutweets = [tweet for tweet in tweets if tweet ['sentiment'] == 'neutral']
     # percentage of neutral tweets
-    print("Neutral tweets percentage: {} % \
-        ".format(100 * (len(tweets) - len(ntweets) - len(ptweets)) / len(tweets)))
-    # todo use stock tickers
+    sentiment_neutral = "Neutral tweets percentage: {} % \
+        ".format(100 * (len(tweets) - len(ntweets) - len(ptweets)) / len(tweets))
+
+    # sentiment as a list of percentages
+    sentiment_overview = [sentiment_positive, sentiment_negative, sentiment_neutral]
+    print(sentiment_overview)
 
     # printing first 5 positive tweets
     print("\n\nPositive tweets:")
     for tweet in ptweets[:10]:
-        print(tweet['text', 'datetime'])
+        print(tweet['text'])
+        print(tweet['datetime'])
 
     # printing first 5 negative tweets
     print("\n\nNegative tweets:")
     for tweet in ntweets[:10]:
-        print(tweet['text', 'datetime'])
+        print(tweet['text'])
+        print(tweet['datetime'])
+
+    # printing first 5 neutral tweets
+    print ( "\n\nNeutral tweets")
+    for tweet in neutweets [:10]:
+        print(tweet['text'])
+        print(tweet['datetime'])
+
+    # saving results in csv-file
+    f = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
+
+    f.write('Sentiment_Overview \n\n')
+    f.write(str(sentiment_overview))
+
+    f.write( '\n\n\n\n positive tweets \n\n')
+    f.write(str(ptweets))
+
+    f.write('\n\n\n\n\n\n Negative Tweets \n\n')
+    f.write(str(ntweets))
+
+    f.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
+    f.write(str(neutweets))
+    f.close()
+
+

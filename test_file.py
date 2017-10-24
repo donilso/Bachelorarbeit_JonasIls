@@ -24,3 +24,27 @@ class TwitterClient(object):
         except:
             print("Error: Authentication Failed")
 
+    def get_tweets(self, query, count=10):
+        '''
+        Main function to fetch tweets and parse them.
+        '''
+        tweets = []
+
+        try:
+            tweets = self.api.search(q=query, count=count)
+
+            return tweets
+
+        except tweepy.TweepError as e:
+
+            print("Error : " + str(e))
+
+def main ():
+
+    api = TwitterClient()
+    tweets = api.get_tweets(query ="$Appl", count = 10)
+
+    for tweet in tweets:
+        print (tweet.text)
+        print (tweet.created_at)
+
