@@ -79,27 +79,18 @@ class TwitterClient(object):
                 parsed_tweet['text'] = tweet.text
                 # saving sentiment of tweet
                 parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
-                parsed_tweet ['datetime'] = tweet.created_at
-                parsed_tweet ['datetime_adjusted'] = tz.localize(tweet.created_at)
+                parsed_tweet['datetime'] = tweet.created_at
+                parsed_tweet['datetime_adjusted'] = tz.localize(tweet.created_at)
 
                 # appending parsed tweet to tweets list
                 if tweet.retweet_count > 0:
+
                     # if tweet has retweets, ensure that it is appended only once
                     if parsed_tweet not in tweets:
                         tweets.append(parsed_tweet)
                 else:
                     tweets.append(parsed_tweet)
-# todo tweets außerhalb der Börsenöffnungszeiten aussortieren
-# todo dafür muss datetime_adjusted auf time reduziert werden und ohne Zeitdifferenz ausgegebene werden
-#                       intime_tweet = []
-#                       if parsed_tweet.created_at > 09:00:00 and parsed_tweet.created_at < 18:00:00
-#                           parsed_tweets.append(intime_tweet)
-#
-#
-#                       else:
 
-
-            # return parsed tweets
             return tweets
 
         except tweepy.TweepError as e:
@@ -115,8 +106,7 @@ def main():
     api = TwitterClient()
     # calling function to get tweets
     tweets = api.get_tweets(query="$Appl", count=10000)
-
-
+    # creating object time
 
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
@@ -151,25 +141,27 @@ def main():
         print(tweet['datetime_adjusted'])
 
     # printing neutral tweets
-    print ( "\n\nNeutral tweets")
+    print("\n\nNeutral tweets")
     for tweet in neutweets:
         print(tweet['text'])
         print(tweet['datetime_adjusted'])
 
     # saving results in csv-file
-    f = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
 
-    f.write('Sentiment_Overview \n\n')
-    f.write(str(sentiment_overview))
+    file = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
 
-    f.write( '\n\n\n\n positive tweets \n\n')
-    f.write(str(ptweets))
+    file.write('Sentiment_Overview \n\n')
+    file.write(str(sentiment_overview))
 
-    f.write('\n\n\n\n\n\n Negative Tweets \n\n')
-    f.write(str(ntweets))
+    file.write('\n\n\n\n positive tweets \n\n')
+    file.write(str(ptweets))
 
-    f.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
-    f.write(str(neutweets))
-    f.close()
+    file.write('\n\n\n\n\n\n Negative Tweets \n\n')
+    file.write(str(ntweets))
 
+    file.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
+    file.write(str(neutweets))
 
+    file.close()
+
+main()
