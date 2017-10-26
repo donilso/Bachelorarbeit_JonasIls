@@ -2,7 +2,10 @@ import re
 import tweepy
 from tweepy import OAuthHandler
 from textblob import TextBlob
+import pytz
+import datetime
 
+print ("Start Test File")
 
 # Class constructor or initialization method.
 class TwitterClient(object):
@@ -24,28 +27,47 @@ class TwitterClient(object):
         except:
             print("Error: Authentication Failed")
 
+
     def get_tweets(self, query, count=10):
         '''
         Main function to fetch tweets and parse them.
         '''
+        # empty list to store parsed tweets
         tweets = []
 
         try:
-            tweets = self.api.search(q=query, count=count)
+            # call twitter api to fetch tweets
+            fetched_tweets = self.api.search(q=query, count=count)
+
+                # parsing tweets one by one
+            for tweet in fetched_tweets:
+                # empty dictionary to store required params of a tweet
+                parsed_tweet = {}
+
+                tweettimestamp = tweet.created_at
+                timestamp_converted = tweettimestamp.strftime("%m, %d, %Y, %H, %M")
+                tweettime = datetime.datetime.fromtimestamp(int(timestamp_converted)).strftime('%H:%M')
+
+                # saving text of tweet
+                parsed_tweet['text'] = tweet.text
+                # saving sentiment of tweet
+                parsed_tweet['datetime'] = tweettimestamp
+                parsed_tweet['time'] = tweettime
 
             return tweets
 
         except tweepy.TweepError as e:
-
             print("Error : " + str(e))
 
-def main ():
+def main():
 
     api = TwitterClient()
     tweets = api.get_tweets(query ="$Appl", count = 10)
 
     for tweet in tweets:
         print (tweet.text)
-        print (tweet.created_at)
+        print (tweet['time'])
 
+main()
 
+print ("finished Test File")

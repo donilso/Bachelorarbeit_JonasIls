@@ -6,6 +6,7 @@ print("hallo jonas")
 # --------------------------
 
 import pytz
+import datetime
 import re
 import tweepy
 from tweepy import OAuthHandler
@@ -74,6 +75,9 @@ class TwitterClient(object):
             for tweet in fetched_tweets:
                 # empty dictionary to store required params of a tweet
                 parsed_tweet = {}
+
+                # defining datetime and time
+                #time = (datetime.hour, datetime.minute)
 
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
@@ -145,6 +149,9 @@ def main():
     for tweet in neutweets:
         print(tweet['text'])
         print(tweet['datetime_adjusted'])
+
+    #todo print(datetime.datetime.fromtimestamp(datetime1).strftime('%H:%M'))
+    #todo wie bekomme ich die Eigenschaft 'datetime' des tweets in ein format, dass von fromtimestamp ausgelesen werden kann?
 
     # saving results in csv-file
 
