@@ -1,3 +1,8 @@
+
+#TODO Tweets of the last week
+#TODO find out why the output is that strange
+
+
 print("hello world")
 print("hallo jonas")
 
@@ -5,12 +10,12 @@ print("hallo jonas")
 # 1. Twitter API
 # --------------------------
 
-import pytz
 import datetime
 import re
 import tweepy
 from tweepy import OAuthHandler
 from textblob import TextBlob
+from pytz import timezone
 
 
 # Class constructor or initialization method.
@@ -65,40 +70,64 @@ class TwitterClient(object):
         '''
         # empty list to store parsed tweets
         tweets = []
-        tz = pytz.timezone('US/Central')
 
         try:
             # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q=query, count=count)
+            fetched_tweets = self.api.search(q=query, count=count) #TODO search for tweets of the last week
 
             # parsing tweets one by one
             for tweet in fetched_tweets:
                 # empty dictionary to store required params of a tweet
                 parsed_tweet = {}
 
-                # defining datetime and time
-                #time = (datetime.hour, datetime.minute)
+                # ___________________________________________________________
+                # TIMESTAMPS AND ADJUSTED TIMESTAMPS
+                # __________________________________________________________
+
+                tweet_timestamp = tweet.created_at
+
+                # adjusting the datetime to timezone
+                EST = timezone('EST')
+                fmt = '%Y-%m-%d %H:%M:%S'
+
+                timestamp_adjusted = tweet_timestamp.astimezone(EST).strftime(fmt)
+                tweet_timestamp_adjusted = datetime.datetime.strptime(timestamp_adjusted, fmt)
+
+                def to_integer(ts):
+                    return 100 * ts.hour + ts.minute
+
+                time_int = to_integer(tweet_timestamp_adjusted.time())
+
+                #___________________________________________________________
+                # __________________________________________________________
 
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
-                # saving sentiment of tweet
+
+                # saving sentiment
                 parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
-                parsed_tweet['datetime'] = tweet.created_at
-                parsed_tweet['datetime_adjusted'] = tz.localize(tweet.created_at)
+
+                # saving timestamp
+                parsed_tweet['datetime'] = tweet_timestamp
+                parsed_tweet['datetime_adjusted'] = tweet_timestamp_adjusted
+                parsed_tweet['time'] = tweet_timestamp_adjusted.time()
+                parsed_tweet['date'] = tweet_timestamp_adjusted.date()
+                parsed_tweet['time_int'] = time_int
 
                 # appending parsed tweet to tweets list
-                if tweet.retweet_count > 0:
+                if parsed_tweet['time_int'] > 930 and parsed_tweet['time_int'] < 1600:
 
-                    # if tweet has retweets, ensure that it is appended only once
-                    if parsed_tweet not in tweets:
+                    if tweet.retweet_count > 0:
+
+                        # if tweet has retweets, ensure that it is appended only once
+                        if parsed_tweet not in tweets:
+                            tweets.append(parsed_tweet)
+                    else:
                         tweets.append(parsed_tweet)
-                else:
-                    tweets.append(parsed_tweet)
 
-            return tweets
+                return tweets
 
         except tweepy.TweepError as e:
-            # print error (if any)
             print("Error : " + str(e))
 
 
@@ -109,7 +138,7 @@ def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
-    tweets = api.get_tweets(query="$Appl", count=10000)
+    tweets = api.get_tweets(query="$Appl", count=1000)
     # creating object time
 
     # picking positive tweets from tweets
@@ -150,9 +179,6 @@ def main():
         print(tweet['text'])
         print(tweet['datetime_adjusted'])
 
-    #todo print(datetime.datetime.fromtimestamp(datetime1).strftime('%H:%M'))
-    #todo wie bekomme ich die Eigenschaft 'datetime' des tweets in ein format, dass von fromtimestamp ausgelesen werden kann?
-
     # saving results in csv-file
 
     file = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
@@ -170,5 +196,3 @@ def main():
     file.write(str(neutweets))
 
     file.close()
-
-main()

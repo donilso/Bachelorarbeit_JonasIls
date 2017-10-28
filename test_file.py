@@ -2,8 +2,10 @@ import re
 import tweepy
 from tweepy import OAuthHandler
 from textblob import TextBlob
-import pytz
 import datetime
+
+import pytz
+from pytz import timezone
 
 print ("Start Test File")
 
@@ -39,35 +41,73 @@ class TwitterClient(object):
             # call twitter api to fetch tweets
             fetched_tweets = self.api.search(q=query, count=count)
 
-                # parsing tweets one by one
+            # parsing tweets one by one
             for tweet in fetched_tweets:
                 # empty dictionary to store required params of a tweet
                 parsed_tweet = {}
 
-                tweettimestamp = tweet.created_at
-                timestamp_converted = tweettimestamp.strftime("%m, %d, %Y, %H, %M")
-                tweettime = datetime.datetime.fromtimestamp(int(timestamp_converted)).strftime('%H:%M')
+                tweet_timestamp = tweet.created_at
+
+
+
+                #adjusting the datetime to timezone
+                EST = timezone('EST')
+                fmt = '%Y-%m-%d %H:%M:%S'
+
+                timestamp_adjusted = tweet_timestamp.astimezone(EST).strftime(fmt)
+                tweet_timestamp_adjusted = datetime.datetime.strptime(timestamp_adjusted, fmt)
+
+
+                #converting timestamp to integer
+                def to_integer(ts):
+                    return 100 * ts.hour + ts.minute
+
+                time_int = to_integer(tweet_timestamp_adjusted.time())
 
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
-                # saving sentiment of tweet
-                parsed_tweet['datetime'] = tweettimestamp
-                parsed_tweet['time'] = tweettime
+
+                #saving timestamp
+                parsed_tweet['datetime'] = tweet_timestamp
+                parsed_tweet['datetime_adjusted'] = tweet_timestamp_adjusted
+                parsed_tweet['time'] = tweet_timestamp_adjusted.time()
+                parsed_tweet['time_int'] = time_int
+                parsed_tweet['date']= tweet_timestamp_adjusted.date()
+
+                if parsed_tweet['time_int'] > 930 and parsed_tweet['time_int'] < 1600:
+
+                    if tweet.retweet_count > 0:
+
+                    # if tweet has retweets, ensure that it is appended only once
+                        if parsed_tweet not in tweets:
+                            tweets.append(parsed_tweet)
+                    else:
+                        tweets.append(parsed_tweet)
+
 
             return tweets
 
         except tweepy.TweepError as e:
             print("Error : " + str(e))
 
+#______________________________________________________________
+#______________________________________________________________
+
 def main():
 
     api = TwitterClient()
-    tweets = api.get_tweets(query ="$Appl", count = 10)
+    tweets = api.get_tweets(query ="$Appl", count = 1000)
 
     for tweet in tweets:
-        print (tweet.text)
-        print (tweet['time'])
+        print(tweet['time'])
+        print(tweet['time_int'])
+
+        #print(tweet['date'])
+        #print(tweet['text'])
+        #print(tweet['datetime'])
+        #print(tweet['datetime_adjusted'])
 
 main()
+
 
 print ("finished Test File")
