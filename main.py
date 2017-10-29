@@ -1,5 +1,4 @@
 import twi_api
-import test_file
 
 #-------------
 #   Main

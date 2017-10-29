@@ -1,7 +1,5 @@
 
 #TODO Tweets of the last week
-#TODO find out why the output is that strange
-
 
 print("hello world")
 print("hallo jonas")
@@ -16,6 +14,7 @@ import tweepy
 from tweepy import OAuthHandler
 from textblob import TextBlob
 from pytz import timezone
+import pandas as pd
 
 
 # Class constructor or initialization method.
@@ -64,7 +63,9 @@ class TwitterClient(object):
         else:
             return 'negative'
 
-    def get_tweets(self, query, count=10):
+
+
+    def get_tweets(self, query, since, until ):
         '''
         Main function to fetch tweets and parse them.
         '''
@@ -73,33 +74,26 @@ class TwitterClient(object):
 
         try:
             # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q=query, count=count) #TODO search for tweets of the last week
+            fetched_tweets = self.api.search(q=query, since=since, until= until)
 
             # parsing tweets one by one
             for tweet in fetched_tweets:
                 # empty dictionary to store required params of a tweet
                 parsed_tweet = {}
 
-                # ___________________________________________________________
-                # TIMESTAMPS AND ADJUSTED TIMESTAMPS
-                # __________________________________________________________
-
                 tweet_timestamp = tweet.created_at
 
                 # adjusting the datetime to timezone
                 EST = timezone('EST')
                 fmt = '%Y-%m-%d %H:%M:%S'
-
                 timestamp_adjusted = tweet_timestamp.astimezone(EST).strftime(fmt)
                 tweet_timestamp_adjusted = datetime.datetime.strptime(timestamp_adjusted, fmt)
 
+                # converting timestamp to integer
                 def to_integer(ts):
                     return 100 * ts.hour + ts.minute
 
                 time_int = to_integer(tweet_timestamp_adjusted.time())
-
-                #___________________________________________________________
-                # __________________________________________________________
 
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
@@ -114,7 +108,6 @@ class TwitterClient(object):
                 parsed_tweet['date'] = tweet_timestamp_adjusted.date()
                 parsed_tweet['time_int'] = time_int
 
-                # appending parsed tweet to tweets list
                 if parsed_tweet['time_int'] > 930 and parsed_tweet['time_int'] < 1600:
 
                     if tweet.retweet_count > 0:
@@ -125,7 +118,7 @@ class TwitterClient(object):
                     else:
                         tweets.append(parsed_tweet)
 
-                return tweets
+            return tweets
 
         except tweepy.TweepError as e:
             print("Error : " + str(e))
@@ -138,8 +131,11 @@ def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
-    tweets = api.get_tweets(query="$Appl", count=1000)
-    # creating object time
+    tweets = api.get_tweets(query="$Appl", since= datetime.date(2017, 10, 28), until= datetime.date(2017, 10, 29))
+
+    # creating dataframe
+    dataframe = pd.DataFrame(tweets)
+    tweets_dataframe = dataframe.drop(['text', 'datetime', 'time_int', 'datetime_adjusted'], axis=1)
 
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
@@ -162,37 +158,42 @@ def main():
     print(sentiment_overview)
 
     # printing positive tweets
-    print("\n\nPositive tweets:")
-    for tweet in ptweets:
-        print(tweet['text'])
-        print(tweet['datetime_adjusted'])
+    #print("\n\nPositive tweets:")
+    #for tweet in ptweets:
+    #    print(tweet['text'])
+    #    print(tweet['datetime_adjusted'])
 
     # printing negative tweets
-    print("\n\nNegative tweets:")
-    for tweet in ntweets:
-        print(tweet['text'])
-        print(tweet['datetime_adjusted'])
+    #print("\n\nNegative tweets:")
+    #for tweet in ntweets:
+    #    print(tweet['text'])
+    #    print(tweet['datetime_adjusted'])
 
     # printing neutral tweets
-    print("\n\nNeutral tweets")
-    for tweet in neutweets:
-        print(tweet['text'])
-        print(tweet['datetime_adjusted'])
+    #print("\n\nNeutral tweets")
+    #for tweet in neutweets:
+    #    print(tweet['text'])
+    #    print(tweet['datetime_adjusted'])
+
+    print("Number of analyzed Tweets:")
+    print(len(tweets))
+
+    print(tweets_dataframe)
 
     # saving results in csv-file
+#
+#    file = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
 
-    file = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
+#    file.write('Sentiment_Overview \n\n')
+#    file.write(str(sentiment_overview))
 
-    file.write('Sentiment_Overview \n\n')
-    file.write(str(sentiment_overview))
+#    file.write('\n\n\n\n positive tweets \n\n')
+#    file.write(str(ptweets))
 
-    file.write('\n\n\n\n positive tweets \n\n')
-    file.write(str(ptweets))
+#    file.write('\n\n\n\n\n\n Negative Tweets \n\n')
+#    file.write(str(ntweets))
 
-    file.write('\n\n\n\n\n\n Negative Tweets \n\n')
-    file.write(str(ntweets))
+#    file.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
+#    file.write(str(neutweets))
 
-    file.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
-    file.write(str(neutweets))
-
-    file.close()
+#    file.close()

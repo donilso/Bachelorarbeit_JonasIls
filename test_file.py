@@ -6,6 +6,7 @@ import datetime
 
 import pytz
 from pytz import timezone
+import pandas as pd
 
 print ("Start Test File")
 
@@ -30,7 +31,7 @@ class TwitterClient(object):
             print("Error: Authentication Failed")
 
 
-    def get_tweets(self, query, count=10):
+    def get_tweets(self, query, count):
         '''
         Main function to fetch tweets and parse them.
         '''
@@ -93,14 +94,18 @@ class TwitterClient(object):
 #______________________________________________________________
 #______________________________________________________________
 
+
 def main():
 
     api = TwitterClient()
     tweets = api.get_tweets(query ="$Appl", count = 1000)
 
-    for tweet in tweets:
-        print(tweet['time'])
-        print(tweet['time_int'])
+    dataframe = pd.DataFrame(tweets)
+    tweets_dataframe = dataframe.drop(['text', 'date', 'datetime', 'time', 'time_int'], axis=1)
+
+        #print(tweet['time'])
+        #print(tweet['time_int'])
+    print(tweets_dataframe)
 
         #print(tweet['date'])
         #print(tweet['text'])
