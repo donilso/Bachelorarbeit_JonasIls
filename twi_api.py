@@ -54,7 +54,7 @@ class TwitterClient(object):
         using textblob's sentiment method
         '''
         # create TextBlob object of passed tweet text
-        analysis = TextBlob(self.__clean_tweet__(tweet))
+        analysis = TextBlob(self.clean_tweet(tweet))
         # set sentiment
         if analysis.sentiment.polarity > 0:
             return 'positive'
@@ -131,12 +131,7 @@ def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
-    tweets = api.get_tweets(query="$Appl", since= datetime.date(2017, 10, 28), until= datetime.date(2017, 10, 29))
-
-    # creating dataframe
-    dataframe = pd.DataFrame(tweets)
-    tweets_dataframe = dataframe.drop(['text', 'datetime', 'time_int', 'datetime_adjusted'], axis=1)
-
+    tweets = api.get_tweets(query=query, count=count)
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
     # percentage of positive tweets
