@@ -1,12 +1,25 @@
 
-#TODO Tweets of the last week
+######## CONTENT ########
 
-print("hello world")
-print("hallo jonas")
+# 1. TWITTER
+#    1.1. Twitter API
+#    1.2. Analyzing sentiment per Tweet
+#    1.3. Collecting Tweets
+#    1.4. Creating timeseries of daily sentiment
+# 2. STOCK DATA
+# 3. CORRELATION
 
-# --------------------------
-# 1. Twitter API
-# --------------------------
+
+
+# __________________________________________________________________
+# 1. TWITTER
+# __________________________________________________________________
+
+
+# __________________________________________________________________
+# 1.1 Twitter API
+# __________________________________________________________________
+print("Twitter Crawler")
 
 import datetime
 import re
@@ -15,7 +28,7 @@ from tweepy import OAuthHandler
 from textblob import TextBlob
 from pytz import timezone
 import pandas as pd
-
+from pandas_datareader.data import DataReader
 
 # Class constructor or initialization method.
 class TwitterClient(object):
@@ -37,9 +50,9 @@ class TwitterClient(object):
         except:
             print("Error: Authentication Failed")
 
-        # ---------------------------
-        # 2. Tweets sammeln und aufbereiten
-        # ---------------------------
+# __________________________________________________________________
+#  1.2 Analyzing Sentiment per Tweet
+# __________________________________________________________________
 
     def __clean_tweet__(self, tweet):
         '''
@@ -54,7 +67,7 @@ class TwitterClient(object):
         using textblob's sentiment method
         '''
         # create TextBlob object of passed tweet text
-        analysis = TextBlob(self.clean_tweet(tweet))
+        analysis = TextBlob(self.__clean_tweet__(tweet))
         # set sentiment
         if analysis.sentiment.polarity > 0:
             return 'positive'
@@ -63,9 +76,11 @@ class TwitterClient(object):
         else:
             return 'negative'
 
+# __________________________________________________________________
+# 1.3 Collecting Tweets
+# __________________________________________________________________
 
-
-    def get_tweets(self, query, since, until ):
+    def get_tweets(self, query, since, until):
         '''
         Main function to fetch tweets and parse them.
         '''
@@ -74,7 +89,7 @@ class TwitterClient(object):
 
         try:
             # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q=query, since=since, until= until)
+            fetched_tweets = self.api.search(q=query, since=since, until=until)
 
             # parsing tweets one by one
             for tweet in fetched_tweets:
@@ -83,17 +98,17 @@ class TwitterClient(object):
 
                 tweet_timestamp = tweet.created_at
 
-                # adjusting the datetime to timezone
+                # adjusting timestamp to EST
                 EST = timezone('EST')
                 fmt = '%Y-%m-%d %H:%M:%S'
-                timestamp_adjusted = tweet_timestamp.astimezone(EST).strftime(fmt)
-                tweet_timestamp_adjusted = datetime.datetime.strptime(timestamp_adjusted, fmt)
+                adjusting = tweet_timestamp.astimezone(EST).strftime(fmt)
+                timestamp_adjusted = datetime.datetime.strptime(adjusting, fmt)
 
-                # converting timestamp to integer
+                # converting timestamp to integer to exclude tweets outside the relevant time range
                 def to_integer(ts):
                     return 100 * ts.hour + ts.minute
 
-                time_int = to_integer(tweet_timestamp_adjusted.time())
+                time_int = to_integer(timestamp_adjusted.time())
 
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
@@ -102,16 +117,15 @@ class TwitterClient(object):
                 parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
 
                 # saving timestamp
-                parsed_tweet['datetime'] = tweet_timestamp
-                parsed_tweet['datetime_adjusted'] = tweet_timestamp_adjusted
-                parsed_tweet['time'] = tweet_timestamp_adjusted.time()
-                parsed_tweet['date'] = tweet_timestamp_adjusted.date()
+                parsed_tweet['datetime_adjusted'] = timestamp_adjusted
                 parsed_tweet['time_int'] = time_int
 
+                # exlcluding irrelevant tweets
+                #   1. excluding tweets outside the relevant time range
                 if parsed_tweet['time_int'] > 930 and parsed_tweet['time_int'] < 1600:
 
+                #   2. excluding retweets
                     if tweet.retweet_count > 0:
-
                         # if tweet has retweets, ensure that it is appended only once
                         if parsed_tweet not in tweets:
                             tweets.append(parsed_tweet)
@@ -124,71 +138,114 @@ class TwitterClient(object):
             print("Error : " + str(e))
 
 
-# ----------------------
-# 3. Main Function
-# ----------------------
-def main():
+# __________________________________________________________________
+# 1.4 Creating timeseries of daily sentiment
+# __________________________________________________________________
+
+def daily_sentiment(date_start, date_end):
+
     # creating object of TwitterClient Class
     api = TwitterClient()
+
     # calling function to get tweets
-    tweets = api.get_tweets(query=query, count=count)
+    tweets = api.get_tweets(query="$AMZN", since=date_start, until=date_end)
+
+    # empty dictionary to save percentage of positive tweets
+    sentiments = {}
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
     # percentage of positive tweets
-    sentiment_positive = "Positive tweets percentage: {} %".format(100 * len(ptweets) / len(tweets))
+    sentiments['sentiment_positive'] = format(100 * len(ptweets) / len(tweets))
 
     # picking negative tweets from tweets
     ntweets = [tweet for tweet in tweets if tweet['sentiment'] == 'negative']
     # percentage of negative tweets
-    sentiment_negative = "Negative tweets percentage: {} %".format(100 * len(ntweets) / len(tweets))
+    sentiments['sentiment_negative'] = format(100 * len(ntweets) / len(tweets))
 
-    # picking neutral tweets from tweets
-    neutweets = [tweet for tweet in tweets if tweet ['sentiment'] == 'neutral']
-    # percentage of neutral tweets
-    sentiment_neutral = "Neutral tweets percentage: {} % \
-        ".format(100 * (len(tweets) - len(ntweets) - len(ptweets)) / len(tweets))
+    # defining date of sentiment analyis
+    sentiments['date'] = date_start
 
-    # sentiment as a list of percentages
-    sentiment_overview = [sentiment_positive, sentiment_negative, sentiment_neutral]
-    print(sentiment_overview)
+    return sentiments
 
-    # printing positive tweets
-    #print("\n\nPositive tweets:")
-    #for tweet in ptweets:
-    #    print(tweet['text'])
-    #    print(tweet['datetime_adjusted'])
+def timeseries_sentiment():
 
-    # printing negative tweets
-    #print("\n\nNegative tweets:")
-    #for tweet in ntweets:
-    #    print(tweet['text'])
-    #    print(tweet['datetime_adjusted'])
+    # soring daily sentiments in list
+    sentiments_ts = [daily_sentiment(date_start=datetime.date(2017, 10, 25), date_end=datetime.date(2017, 10, 26)),
+                     daily_sentiment(date_start=datetime.date(2017, 10, 26), date_end=datetime.date(2017, 10, 27)),
+                     daily_sentiment(date_start=datetime.date(2017, 10, 27), date_end=datetime.date(2017, 10, 28)),
+                     #daily_sentiment(date_start= datetime.date(2017, 10, 28) , date_end= datetime.date(2017, 10, 29)),
+                     #daily_sentiment(date_start= datetime.date(2017, 10, 29) , date_end= datetime.date(2017, 10, 30)),
+                     #daily_sentiment(date_start= datetime.date(2017, 10, 30) , date_end= datetime.date(2017, 10, 31)),
+                     #daily_sentiment(date_start= datetime.date(2017, 10, 31) , date_end= datetime.date(2017, 11, 1))
+                     ]
 
-    # printing neutral tweets
-    #print("\n\nNeutral tweets")
-    #for tweet in neutweets:
-    #    print(tweet['text'])
-    #    print(tweet['datetime_adjusted'])
+    # storing results in dataframe
+    df = pd.DataFrame(sentiments_ts)
+    df_sentiments = df.set_index('date')
 
-    print("Number of analyzed Tweets:")
-    print(len(tweets))
+    #sentiments_file = sentiments_file.to_csv('sentiments_appl.csv')
 
-    print(tweets_dataframe)
+    return df_sentiments #, sentiments_file
 
-    # saving results in csv-file
-#
-#    file = open(r'/Users/Jonas/Desktop/BA_Results/APPL_results.csv', 'w')
+#__________________________________________________________________
+# 2. STOCK DATA
+#__________________________________________________________________
 
-#    file.write('Sentiment_Overview \n\n')
-#    file.write(str(sentiment_overview))
 
-#    file.write('\n\n\n\n positive tweets \n\n')
-#    file.write(str(ptweets))
+def stockdata():
 
-#    file.write('\n\n\n\n\n\n Negative Tweets \n\n')
-#    file.write(str(ntweets))
+    start = '2017-10-25'
+    end = '2017-10-27'
 
-#    file.write('\n\n\n\n\n\n\n\n Neutral Tweets \n\n')
-#    file.write(str(neutweets))
+    # collecting stockdata
+    stocks = DataReader("AMZN", 'yahoo', start, end)['Adj Close']
 
-#    file.close()
+    # calculating yields
+    yields = stocks/stocks.shift(1)-1
+    df_yields = yields.drop(yields.index[0])
+
+    print(stocks)
+
+    #stockdata_file = stockdata.to_csv('stockdata_aapl.csv')
+
+    return df_yields#,stockdata_file
+
+#__________________________________________________________________
+# 3. CORRELATION
+#__________________________________________________________________
+
+import numpy as np
+
+def correlation():
+    """ Main Function to get corr between Sentiment and Price Data"""
+    # calling stockdata
+    df_yields = stockdata()
+    # calling sentiments
+    df_sentiments = timeseries_sentiment()
+
+    # merging dataframes
+    df_results = pd.concat([df_yields, df_sentiments], axis=1, ignore_index=True)
+
+    # changing data type of columns
+    df_results[0] = np.float64(df_results[0])
+    df_results[1] = np.float64(df_results[1])
+    df_results[2] = np.float64(df_results[2])
+
+    # renaming columns
+    df_results.rename(columns={0: 'return_t_t-1', 1: 'Negative', 2: 'Positive'}, inplace=True)
+
+    #df_results.rename(columns={'Adj Close': 'return_t_t-1', 'sentiment_negative': 'negative', 'sentiment_positiv':'positive'}, inplace=True)
+
+    print(df_results)
+
+    # calculating correlation between stocks and sentiments
+    correlation_negative = df_results['return_t_t-1'].corr(df_results['Negative'])
+    correlation_positive = df_results['return_t_t-1'].corr(df_results['Positive'])
+
+    print("Corr Negative Sentiment")
+    print(correlation_negative)
+
+    print("Corr Positive Sentiment")
+    print(correlation_positive)
+
+    return correlation
