@@ -1,118 +1,136 @@
-import re
-import tweepy
-from tweepy import OAuthHandler
-from textblob import TextBlob
+import feedparser
 import datetime
-
-import pytz
 from pytz import timezone
 import pandas as pd
-
-print ("Start Test File")
-
-# Class constructor or initialization method.
-class TwitterClient(object):
-    # Class constructor or initialization method.
-    def __init__(self):
-        consumer_key = "8Ca3VZdZ8FAHBQHY5Q4JqQJ95"
-        consumer_secret = "jAooexmkwG8QxW8ODcK8FqNB5ZLVqaoqA5lgfINqucJYMuNoJE"
-        access_token = "912230531089223680-0UiOqekdECbqtKtHaPF2mnZVejrgmb5"
-        access_secret = "SCGpxSkF5jwszN59etpVRKs4B9oi5wbCFysQIW1MgDmMD"
-
-        # attempt authentication
-        try:
-            # create OAuthHandler object
-            self.auth = OAuthHandler(consumer_key, consumer_secret)
-            # set access token and secret
-            self.auth.set_access_token(access_token, access_secret)
-            # create tweepy API object to fetch tweets
-            self.api = tweepy.API(self.auth)
-        except:
-            print("Error: Authentication Failed")
+from newspaper import Article
+import csv
+import unidecode
 
 
-    def get_tweets(self, query, count):
-        '''
-        Main function to fetch tweets and parse them.
-        '''
-        # empty list to store parsed tweets
-        tweets = []
+### CONTENT ###
+### 1. Creating CLASS of RSS Feed
+### 2. Declaring the INSTANCES of our class
+### 3. Main Function to fetch feeds and scrape news
 
-        try:
-            # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q=query, count=count)
+#________________________________________________________
+#________________________________________________________
+''' 1. Creating CLASS of RSS Feed '''
 
-            # parsing tweets one by one
-            for tweet in fetched_tweets:
-                # empty dictionary to store required params of a tweet
-                parsed_tweet = {}
+class RSSFeeds(object):
 
-                tweet_timestamp = tweet.created_at
+    # Creating List of instances to make class iterable
+    _by_company = []
 
+    # Declaring attributes of instances
+    def __init__(self, url_Feed, company_Feed):
+        self.url_Feed = url_Feed
+        self._by_company.append(self)
 
+        self.company_Feed = company_Feed
 
-                #adjusting the datetime to timezone
-                EST = timezone('EST')
-                fmt = '%Y-%m-%d %H:%M:%S'
+#________________________________________________________
+#________________________________________________________
+''' 2. Declaring the INSTANCES of our class'''
 
-                timestamp_adjusted = tweet_timestamp.astimezone(EST).strftime(fmt)
-                tweet_timestamp_adjusted = datetime.datetime.strptime(timestamp_adjusted, fmt)
-
-
-                #converting timestamp to integer
-                def to_integer(ts):
-                    return 100 * ts.hour + ts.minute
-
-                time_int = to_integer(tweet_timestamp_adjusted.time())
-
-                # saving text of tweet
-                parsed_tweet['text'] = tweet.text
-
-                #saving timestamp
-                parsed_tweet['datetime'] = tweet_timestamp
-                parsed_tweet['datetime_adjusted'] = tweet_timestamp_adjusted
-                parsed_tweet['time'] = tweet_timestamp_adjusted.time()
-                parsed_tweet['time_int'] = time_int
-                parsed_tweet['date']= tweet_timestamp_adjusted.date()
-
-                if parsed_tweet['time_int'] > 930 and parsed_tweet['time_int'] < 1600:
-
-                    if tweet.retweet_count > 0:
-
-                    # if tweet has retweets, ensure that it is appended only once
-                        if parsed_tweet not in tweets:
-                            tweets.append(parsed_tweet)
-                    else:
-                        tweets.append(parsed_tweet)
+AMZN = RSSFeeds(url_Feed=['http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=AMZN','http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=AMZN'], company_Feed='AMZN')
+MSFT = RSSFeeds(url_Feed=['http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=MSFT'], company_Feed='MSFT')
 
 
-            return tweets
+#________________________________________________________
+#________________________________________________________
+''' Open old dataframe '''
+#def open_olddata():
+    #for company in RSSFeeds._by_company:
+        #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed), encoding="utf-8")
+        #return df_old
 
-        except tweepy.TweepError as e:
-            print("Error : " + str(e))
-
-#______________________________________________________________
-#______________________________________________________________
-
-
-def main():
-
-    api = TwitterClient()
-    tweets = api.get_tweets(query ="$Appl", count = 1000)
-
-    dataframe = pd.DataFrame(tweets)
-    tweets_dataframe = dataframe.drop(['text', 'date', 'datetime', 'time', 'time_int'], axis=1)
-
-        #print(tweet['time'])
-        #print(tweet['time_int'])
-    print(tweets_dataframe)
-
-        #print(tweet['date'])
-        #print(tweet['text'])
-        #print(tweet['datetime'])
-        #print(tweet['datetime_adjusted'])
-
-main()
+#________________________________________________________
+#________________________________________________________
+'''3. Main Function to fetch feeds and scrape news'''
 
 
-print ("finished Test File")
+for company in RSSFeeds._by_company:
+
+    # List to Store data
+    feed = []
+
+    # List of Links to sort out duplicates
+    # links =[]
+
+    # fetching every feed per company
+    for URL in company.url_Feed:
+
+        fetched_feed = feedparser.parse(URL)
+
+        # parsing every entry of feed
+        for entry in fetched_feed.entries:
+
+            # dictionary to store data
+            parsed_link = {}
+
+            parsed_link['link'] = unidecode.unidecode(entry.link)
+
+            # parse timestamp
+            published = entry.published.replace("Z", "UTC")
+
+            # formats to convert string to datetime
+            fmt = '%a, %d %b %Y %H:%M:%S %Z'
+            timestamp = datetime.datetime.strptime(published, fmt)
+
+            # adjusting timestamp to Eastern Standard Time
+            EST = timezone('EST')
+            fmt_adj = '%Y-%m-%d %H:%M:%S'
+            adjusting_tz = timestamp.astimezone(EST).strftime(fmt_adj)
+            timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
+            parsed_link['date'] = unidecode.unidecode(str(timestamp_adj))
+
+            # classifying news
+            def to_integer(ts):
+                return 100 * ts.hour + ts.minute
+
+            time_int = to_integer(timestamp_adj.time())
+
+            if time_int > 930 and time_int < 1600:
+                parsed_link["Timeslot"] = "DURING"
+
+
+            else:
+                if time_int > 0 and time_int < 930:
+                    parsed_link["Timeslot"] = "BEFORE"
+
+                if time_int > 1600 and time_int < 2359:
+                    parsed_link["Timeslot"] = "AFTER"
+
+            # extract atricle from HTML with newspaper lib
+
+            extractor = Extractor(extractor='Article Extractor', url=parsed_link['link'])
+            content = extractor.get_text()
+            parsed_link['article'] = unidecode.unidecode(content)
+
+            # append link to list of links to sort out duplicate links in the next step
+            # links.append(parsed_link['link'])
+
+            # append data of every article to list
+            if parsed_link not in feed:
+                feed.append(parsed_link)
+
+    df_new = pd.DataFrame(feed).set_index('date')
+
+    print(df_new)
+
+
+    #df_old = pd.read_csv(
+    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+    #    encoding="utf-8", index_col='date')
+
+    #df_merged = pd.concat([df_old, df_new])
+    #df_merged = df_merged.drop_duplicates(subset='link')
+
+    #df_merged.to_csv(
+    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+    #    index_label='date', encoding="utf-8")
+
+    #df_new.to_csv(
+    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+    #    index_label='date', encoding="utf-8")
+
