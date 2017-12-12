@@ -6,7 +6,6 @@ from newspaper import Article
 import csv
 import unidecode
 
-
 ### CONTENT ###
 ### 1. Creating CLASS of RSS Feed
 ### 2. Declaring the INSTANCES of our class
@@ -32,17 +31,126 @@ class RSSFeeds(object):
 #________________________________________________________
 ''' 2. Declaring the INSTANCES of our class'''
 
-AMZN = RSSFeeds(url_Feed=['http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=AMZN','http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=AMZN'], company_Feed='AMZN')
-MSFT = RSSFeeds(url_Feed=['http://articlefeeds.nasdaq.com/nasdaq/symbols?symbol=MSFT'], company_Feed='MSFT')
-
-
-#________________________________________________________
-#________________________________________________________
-''' Open old dataframe '''
-#def open_olddata():
-    #for company in RSSFeeds._by_company:
-        #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed), encoding="utf-8")
-        #return df_old
+MSFT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NASDAQ:MSFT&ei=Ya0tWomUMIugswGAqLrwDg&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=MSFT'
+                          ],
+                company_Feed='MSFT')
+MMM = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:MMM&ei=aKotWrHONIOIsAGXqouYCg&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=MMM'
+                           ],
+               company_Feed='MMM')
+AXP = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:AXP&ei=oKotWvnGBc2EsQGD5IeQDQ&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=AXP'
+                           ],
+               company_Feed='AXP')
+AAPL = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NASDAQ:AAPL&ei=tqotWsCCFJDDsAGv8pCACg&output=rss',
+                            #'http://finance.yahoo.com/rss/headline?s=AAPL'
+                            ],
+                company_Feed='AAPL')
+BA = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:BA&ei=yKotWqiBF82HsQHk2onwBA&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=BA'
+                          ],
+              company_Feed='BA')
+CAT = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:CAT&ei=2KotWrkXhvizAc6DhbgD&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=CAT'
+                           ],
+               company_Feed='CAT')
+CVX = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:CVX&ei=6qotWqi_LIHuUbqjkeAC&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=CVX)'
+                           ],
+               company_Feed='CVX')
+CSCO = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NASDAQ:CSCO&ei=EKstWrCcG8zisgH3zaqQCA&output=rss',
+                            #'http://finance.yahoo.com/rss/headline?s=CSCO'
+                            ],
+                company_Feed='CSCO')
+KO = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:KO&ei=H6stWrmlJY_AswH0rYD4BA&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=KO'
+                          ],
+              company_Feed='KO')
+DWDP = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:DWDP&ei=MqstWpmtGNuCswGs0bnoCA&output=rss',
+                            #'http://finance.yahoo.com/rss/headline?s=DWDP'
+                            ],
+                company_Feed='DWDP')
+DIS = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:DIS&ei=Q6stWvDRHtKFsQH6yYa4Ag&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=DIS)'
+                           ],
+               company_Feed='DIS')
+XOM = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:XOM&ei=UqstWsGFE9LHsAGem4WYBQ&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=XOM'
+                           ],
+               company_Feed='XOM')
+GE = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:GE&ei=YqstWoDnMZDDsAGv8pCACg&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=GE'
+                          ],
+              company_Feed='GE')
+GS = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:GS&ei=dKstWpChD9uCswGs0bnoCA&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=GS'
+                          ],
+              company_Feed='GS')
+HD = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:HD&ei=pKstWsCWN9SHsAGx7ozwDQ&output=rss',
+                          #'http://finance.yahoo.com/rss/headline?s=HD'
+                          ],
+              company_Feed='HD')
+IBM = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:IBM&ei=t6stWuCVGMzisgH3zaqQCA&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=IBM'
+                           ],
+               company_Feed='IBM')
+INTC = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NASDAQ:INTC&ei=2qstWtDBGYeLsQGTq5nwCw&output=rss',
+                            #'http://finance.yahoo.com/rss/headline?s=INTC'
+                            ],
+                company_Feed='INTC')
+JNJ = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:JNJ&ei=6qstWsDbIIb4swHOg4W4Aw&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=JNJ'
+                           ],
+               company_Feed='JNJ')
+JPM = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:JPM&ei=_astWvCtKtWvsgHC5Y2QCQ&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=JPM'
+                           ],
+               company_Feed='JPM')
+MCD = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:MCD&ei=FqwtWsnkKougswGAqLrwDg&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=MCD'
+                           ],
+               company_Feed='MCD')
+MRK = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:MRK&ei=JawtWqCSLtuCswGs0bnoCA&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=MRK'
+                           ],
+               company_Feed='MRK')
+NKE = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:NKE&ei=NqwtWpmGJZLKswGZmYTIBg&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=NKE'
+                           ],
+               company_Feed='NKE')
+PFE = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:PFE&ei=Q6wtWsC4ApDEsAGNiaKwDw&output=rss',
+                           #'http://finance.yahoo.com/rss/headline?s=PFE'
+                           ],
+               company_Feed='PFE')
+PG = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:PG&ei=WKwtWuC_Co7DswHlyZD4CA&output=rss',
+                        #'http://finance.yahoo.com/rss/headline?s=PG'
+                        ],
+              company_Feed='PG')
+TRV = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:TRV&ei=t6wtWsCmCNOQswHv2rTgBQ&output=rss',
+                         #'http://finance.yahoo.com/rss/headline?s=TRV'
+                        ],
+               company_Feed='TRV')
+UTX = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:UTX&ei=5KwtWpD9GofaswGx_J6QBA&output=rss',
+                         #'http://finance.yahoo.com/rss/headline?s=UTX'
+                         ],
+               company_Feed='UTX')
+UNH = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:UNH&ei=9KwtWpDIAta_swHi-J5w&output=rss',
+                         #'http://finance.yahoo.com/rss/headline?s=UNH'
+                         ],
+               company_Feed='UNH')
+VZ = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:VZ&ei=Ca0tWvDCI8zesgG3w6KwAg&output=rss',
+                        #'http://finance.yahoo.com/rss/headline?s=VZ'
+                        ],
+              company_Feed='VZ')
+V = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:V&ei=Fq0tWumSJsbIU_CyofgB&output=rss',
+                       #'http://finance.yahoo.com/rss/headline?s=V'
+                       ],
+             company_Feed='V')
+WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:WMT&ei=Mq0tWtD8L4KCsQH5jb3gCA&output=rss',
+                         #'http://finance.yahoo.com/rss/headline?s=WMT'
+                         ],
+               company_Feed='WMT')
 
 #________________________________________________________
 #________________________________________________________
@@ -102,9 +210,10 @@ for company in RSSFeeds._by_company:
                     parsed_link["Timeslot"] = "AFTER"
 
             # extract atricle from HTML with newspaper lib
-
-            extractor = Extractor(extractor='Article Extractor', url=parsed_link['link'])
-            content = extractor.get_text()
+            article = Article(parsed_link['link'])
+            article.download()
+            article.parse()
+            content = article.text
             parsed_link['article'] = unidecode.unidecode(content)
 
             # append link to list of links to sort out duplicate links in the next step
@@ -113,24 +222,23 @@ for company in RSSFeeds._by_company:
             # append data of every article to list
             if parsed_link not in feed:
                 feed.append(parsed_link)
+                print(parsed_link)
 
     df_new = pd.DataFrame(feed).set_index('date')
+    df_old = pd.read_csv(
+        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+        encoding="utf-8", index_col='date')
 
-    print(df_new)
+    df_merged = pd.concat([df_old, df_new])
+    df_merged = df_merged.drop_duplicates(subset='link')
 
-
-    #df_old = pd.read_csv(
-    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-    #    encoding="utf-8", index_col='date')
-
-    #df_merged = pd.concat([df_old, df_new])
-    #df_merged = df_merged.drop_duplicates(subset='link')
-
-    #df_merged.to_csv(
-    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-    #    index_label='date', encoding="utf-8")
+    df_merged.to_csv(
+        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+        index_label='date', encoding="utf-8")
 
     #df_new.to_csv(
     #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
     #    index_label='date', encoding="utf-8")
 
+    print("DF Merged")
+    print(len(df_merged))
