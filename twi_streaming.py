@@ -135,7 +135,9 @@ if __name__ == '__main__':
     #This handles Twitter authetification and the connection to Twitter Streaming API
     l = StdOutListener()
     auth = OAuthHandler(consumer_key, consumer_secret)
+    auth.secure = True
     auth.set_access_token(access_token, access_secret)
+
     stream = Stream(auth, l)
 
     for company in RSSFeeds._by_company:
@@ -172,7 +174,7 @@ def extract_link(text):
 def main():
     #Reading Tweets
     print ('Reading Tweets\n')
-    tweets_data_path = '../data/twitter_data.txt'
+    tweets_data_path = '../data/twitter_data.txt' #Todo: File erstellen und hier ändern
 
     tweets_data = []
     tweets_file = open(tweets_data_path, "r")
@@ -186,11 +188,47 @@ def main():
 
     #Structuring Tweets
     print ('Structuring Tweets\n')
-    tweets = pd.DataFrame()
-    tweets['text'] = map(lambda tweet: tweet['text'], tweets_data)
-    tweets['lang'] = map(lambda tweet: tweet['lang'], tweets_data)
-    tweets['country'] = map(lambda tweet: tweet['place']['country'] if tweet['place'] != None else None, tweets_data)
 
+    analyzed_tweets = []
+
+    for tweet in tweets_data:
+        parsed_tweet = {}
+
+        parsed_tweet['text'] =tweet.text
+        parsed_tweet['lang'] =tweet.lang
+        parsed_tweet['timestamp'] = tweet.created_at
+
+        # adjusting timestamp to EST
+        EST = timezone('EST')
+        fmt = '%Y-%m-%d %H:%M:%S'
+        adjusting = timestamp.astimezone(EST).strftime(fmt)
+        timestamp_adj = datetime.datetime.strptime(adjusting, fmt)
+        parsed_tweet['timestamp_adj'] = timestamp_adj
+
+        # converting timestamp to integer to exclude tweets outside the relevant time range
+        def to_integer(ts):
+            return 100 * ts.hour + ts.minute
+        time_int = to_integer(timestamp_adj.time())
+        #
+        if time_int > 930 and time_int < 1600:
+            parsed_tweet["Timeslot"] = "DURING"
+        else:
+            if time_int > 0 and time_int < 930:
+                parsed_tweet["Timeslot"] = "BEFORE"
+            if time_int > 1600 and time_int < 2359:
+                parsed_tweet["Timeslot"] = "AFTER"
+
+        parsed_tweet['retweets'] = tweet.retweet_count
+        parsed_tweet['favorite'] = tweet.favorite_count
+        parsed_tweet['user'] = tweet.user
+
+        # exlcluding retweets
+        if tweet.retweet_count > 0:
+            # if tweet has retweets, ensure that it is appended only once
+            if parsed_tweet not in tweets:
+                analyzed_tweets.append(parsed_tweet)
+        else:
+            analyzed_tweets.append(parsed_tweet)
 
     #Analyzing Tweets by Language
     print ('Analyzing tweets by language\n')
