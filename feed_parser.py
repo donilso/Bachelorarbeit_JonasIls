@@ -154,8 +154,14 @@ for company in RSSFeeds._by_company:
 
             ts_weekday , ts_day, ts_month, ts_year, ts_time, ts_timezone = published.split(" ")
 
-            # formats to convert string to datetime
-            fmt = '%a, %d %b %Y %H:%M:%S %Z'
+            # identifying the format of timezone
+            if '+' in ts_timezone:
+                fmt = '%a %d %b %Y %H:%M:%S %z'
+            elif '-' in ts_timezone:
+                fmt = '%a %d %b %Y %H:%M:%S %z'
+            else:
+                fmt = '%a %d %b %Y %H:%M:%S %Z'
+
             timestamp = datetime.datetime.strptime(published, fmt)
 
             # adjusting timestamp to Eastern Standard Time
@@ -163,11 +169,13 @@ for company in RSSFeeds._by_company:
             fmt_adj = '%Y-%m-%d %H:%M:%S'
             adjusting_tz = timestamp.astimezone(EST).strftime(fmt_adj)
 
-            timestamp_fetched = timestamp_adj.strftime(fmt_adj)
+            timestamp_fetched = timestamp.strftime(fmt_adj)
             timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
 
-            parsed_link['datetime_fetched'] = unidecode.unidecode(str(timestamp_adj))
+            parsed_link['datetime_fetched'] = unidecode.unidecode(str(timestamp_fetched))
             parsed_link['date'] = unidecode.unidecode(str(timestamp_adj))
+
+            print(parsed_link['datetime_fetched'], parsed_link['date'])
 
             # classifying news
             def to_integer(ts):
@@ -187,11 +195,15 @@ for company in RSSFeeds._by_company:
                     parsed_link["Timeslot"] = "AFTER"
 
             # extract atricle from HTML with newspaper lib
-            article = Article(parsed_link['link'])
-            article.download()
-            article.parse()
-            content = article.text
-            parsed_link['article'] = unidecode.unidecode(content)
+            try:
+                article = Article(parsed_link['link'])
+                article.download()
+                article.parse()
+                content = article.text
+                parsed_link['article'] = unidecode.unidecode(content)
+
+            except:
+                parsed_link['atricle'] = "Error accessing {}".format(parsed_link['link'])
 
             # append link to list of links to sort out duplicate links in the next step
             # links.append(parsed_link['link'])
