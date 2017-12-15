@@ -6,6 +6,9 @@ import time
 import string
 import json
 import pandas as pd
+import json
+import matplotlib.pyplot as plt
+import re
 
 class RSSFeeds(object):
 
@@ -148,12 +151,6 @@ if __name__ == '__main__':
     stream.filter(track=track)
 
 
-import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import re
-
-
 def word_in_text(word, text):
     word = word.lower()
     text = text.lower()
@@ -185,10 +182,7 @@ def main():
         except:
             continue
 
-
     #Structuring Tweets
-    print ('Structuring Tweets\n')
-
     analyzed_tweets = []
 
     for tweet in tweets_data:
@@ -196,33 +190,38 @@ def main():
 
         parsed_tweet['text'] =tweet.text
         parsed_tweet['lang'] =tweet.lang
-        parsed_tweet['timestamp'] = tweet.created_at
+        timestamp = tweet.created_at
 
         # adjusting timestamp to EST
         EST = timezone('EST')
         fmt = '%Y-%m-%d %H:%M:%S'
         adjusting = timestamp.astimezone(EST).strftime(fmt)
         timestamp_adj = datetime.datetime.strptime(adjusting, fmt)
-        parsed_tweet['timestamp_adj'] = timestamp_adj
+        parsed_tweet['time_adj'] = timestamp_adj.time
+        parsed_tweet['time_fetched'] = timestamp.time
+        parse_tweets['date'] = timestamp_adj.date
 
-        # converting timestamp to integer to exclude tweets outside the relevant time range
+        # converting timestamp to integer to classify tweets by "timeslot"
         def to_integer(ts):
             return 100 * ts.hour + ts.minute
         time_int = to_integer(timestamp_adj.time())
         #
         if time_int > 930 and time_int < 1600:
-            parsed_tweet["Timeslot"] = "DURING"
+            parsed_tweet["timeslot"] = "during"
         else:
             if time_int > 0 and time_int < 930:
-                parsed_tweet["Timeslot"] = "BEFORE"
+                parsed_tweet["timeslot"] = "before"
             if time_int > 1600 and time_int < 2359:
-                parsed_tweet["Timeslot"] = "AFTER"
+                parsed_tweet["timeslot"] = "after"
 
         parsed_tweet['retweets'] = tweet.retweet_count
         parsed_tweet['favorite'] = tweet.favorite_count
         parsed_tweet['user'] = tweet.user
 
-        # exlcluding retweets
+        #analyzing relevance
+        parsed_tweet['relevant'] = word_in_text('stock', parsed_tweet['text']) #todo word_in_text anpassen
+
+        #exlcluding retweets
         if tweet.retweet_count > 0:
             # if tweet has retweets, ensure that it is appended only once
             if parsed_tweet not in tweets:
@@ -230,31 +229,8 @@ def main():
         else:
             analyzed_tweets.append(parsed_tweet)
 
-    #Analyzing Tweets by Language
-    print ('Analyzing tweets by language\n')
-    tweets_by_lang = tweets['lang'].value_counts()
-    fig, ax = plt.subplots()
-    ax.tick_params(axis='x', labelsize=15)
-    ax.tick_params(axis='y', labelsize=10)
-    ax.set_xlabel('Languages', fontsize=15)
-    ax.set_ylabel('Number of tweets' , fontsize=15)
-    ax.set_title('Top 5 languages', fontsize=15, fontweight='bold')
-    tweets_by_lang[:5].plot(ax=ax, kind='bar', color='red')
-    plt.savefig('tweet_by_lang', format='png')
-
-
-    #Analyzing Tweets by Country
-    print ('Analyzing tweets by country\n')
-    tweets_by_country = tweets['country'].value_counts()
-    fig, ax = plt.subplots()
-    ax.tick_params(axis='x', labelsize=15)
-    ax.tick_params(axis='y', labelsize=10)
-    ax.set_xlabel('Countries', fontsize=15)
-    ax.set_ylabel('Number of tweets' , fontsize=15)
-    ax.set_title('Top 5 countries', fontsize=15, fontweight='bold')
-    tweets_by_country[:5].plot(ax=ax, kind='bar', color='blue')
-    plt.savefig('tweet_by_country', format='png')
-
+    df_tweets = pd.DataFrame(analyzed_tweets)
+    df_tweets.set_index('date')
 
     #Adding programming languages columns to the tweets DataFrame
     print ('Adding programming languages tags to the data\n')
@@ -262,45 +238,11 @@ def main():
     tweets['javascript'] = tweets['text'].apply(lambda tweet: word_in_text('javascript', tweet))
     tweets['ruby'] = tweets['text'].apply(lambda tweet: word_in_text('ruby', tweet))
 
-
-    #Analyzing Tweets by programming language: First attempt
-    print ('Analyzing tweets by programming language: First attempt\n')
-    prg_langs = ['python', 'javascript', 'ruby']
-    tweets_by_prg_lang = [tweets['python'].value_counts()[True], tweets['javascript'].value_counts()[True], tweets['ruby'].value_counts()[True]]
-    x_pos = list(range(len(prg_langs)))
-    width = 0.8
-    fig, ax = plt.subplots()
-    plt.bar(x_pos, tweets_by_prg_lang, width, alpha=1, color='g')
-    ax.set_ylabel('Number of tweets', fontsize=15)
-    ax.set_title('Ranking: python vs. javascript vs. ruby (Raw data)', fontsize=10, fontweight='bold')
-    ax.set_xticks([p + 0.4 * width for p in x_pos])
-    ax.set_xticklabels(prg_langs)
-    plt.grid()
-    plt.savefig('tweet_by_prg_language_1', format='png')
-
-
     #Targeting relevant tweets
     print ('Targeting relevant tweets\n')
     tweets['programming'] = tweets['text'].apply(lambda tweet: word_in_text('programming', tweet))
     tweets['tutorial'] = tweets['text'].apply(lambda tweet: word_in_text('tutorial', tweet))
     tweets['relevant'] = tweets['text'].apply(lambda tweet: word_in_text('programming', tweet) or word_in_text('tutorial', tweet))
-
-
-    #Analyzing Tweets by programming language: Second attempt
-    print ('Analyzing tweets by programming language: First attempt\n')
-    tweets_by_prg_lang = [tweets[tweets['relevant'] == True]['python'].value_counts()[True],
-                      tweets[tweets['relevant'] == True]['javascript'].value_counts()[True],
-                      tweets[tweets['relevant'] == True]['ruby'].value_counts()[True]]
-    x_pos = list(range(len(prg_langs)))
-    width = 0.8
-    fig, ax = plt.subplots()
-    plt.bar(x_pos, tweets_by_prg_lang, width,alpha=1,color='g')
-    ax.set_ylabel('Number of tweets', fontsize=15)
-    ax.set_title('Ranking: python vs. javascript vs. ruby (Relevant data)', fontsize=10, fontweight='bold')
-    ax.set_xticks([p + 0.4 * width for p in x_pos])
-    ax.set_xticklabels(prg_langs)
-    plt.grid()
-    plt.savefig('tweet_by_prg_language_2', format='png')
 
 
     #Extracting Links
