@@ -113,43 +113,92 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                          'http://finance.yahoo.com/rss/headline?s=WMT'],
                company_Feed='$WMT')
 
-##################################
-### TWITTER STREAM ###############
-##################################
+def word_in_text(text):
+    keywords = ["stock", "price", "market", "share"]
 
-consumer_key = "xPdDjbhEHyFMzCW90KGAummxz"
-consumer_secret = "zValY66MwanWf7XOqBNLFGqZsBpjq84Qo6jHddFOwhLnxSIOyJ"
-access_token = "912230531089223680-9TlKB13hYMTkbJpRpKHCDxuWX0ugtUI"
-access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
-callback_url = "https://github.com/donilso/Bachelorarbeit_JonasIls"
+    for keyword in keywords:
 
-
-#This is a basic listener that just prints received tweets to stdout.
-class StdOutListener(StreamListener):
-
-    def on_data(self, data):
-        print (data)
-        return True
-
-    def on_error(self, status):
-        print (status)
+        keyword = keyword.lower()
+        text = text.lower()
+        match = re.search(keyword, text)
+        if match:
+            return True
+        return False
 
 
-if __name__ == '__main__':
+def extract_link(text):
+    regex = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
+    match = re.search(regex, text)
+    if match:
+        return match.group()
+    return ''
 
-    #This handles Twitter authetification and the connection to Twitter Streaming API
-    l = StdOutListener()
-    auth = OAuthHandler(consumer_key, consumer_secret)
-    auth.secure = True
-    auth.set_access_token(access_token, access_secret, callback_url)
 
-    stream = Stream(auth, l)
-
+def main():
     for company in RSSFeeds._by_company:
-        data = stream.filter(track=company.company_Feed)
+        #Reading Tweets
 
-        f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_Feed), a)
-        f.wrtie(data)
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_feed)
 
-        f.close()
+        tweets_data = []
+        tweets_file = open(tweets_data_path, "r")
+        for line in tweets_file:
+            try:
+                tweet = json.loads(line)
+                tweets_data.append(tweet)
+            except:
+                continue
 
+        #Structuring Tweets
+        analyzed_tweets = []
+
+        for tweet in tweets_data:
+            parsed_tweet = {}
+
+            parsed_tweet['text'] =tweet.text
+            parsed_tweet['lang'] =tweet.lang
+            timestamp = tweet.created_at
+
+            # adjusting timestamp to EST
+            EST = timezone('EST')
+            fmt = '%Y-%m-%d %H:%M:%S'
+            adjusting = timestamp.astimezone(EST).strftime(fmt)
+            timestamp_adj = datetime.datetime.strptime(adjusting, fmt)
+            parsed_tweet['time_adj'] = timestamp_adj.time
+            parsed_tweet['time_fetched'] = timestamp.time
+            parse_tweets['date'] = timestamp_adj.date
+
+            # converting timestamp to integer to classify tweets by "timeslot"
+            def to_integer(ts):
+                return 100 * ts.hour + ts.minute
+            time_int = to_integer(timestamp_adj.time())
+            #
+            if time_int > 930 and time_int < 1600:
+                parsed_tweet["timeslot"] = "during"
+            else:
+                if time_int > 0 and time_int < 930:
+                    parsed_tweet["timeslot"] = "before"
+                if time_int > 1600 and time_int < 2359:
+                    parsed_tweet["timeslot"] = "after"
+
+            parsed_tweet['retweets'] = tweet.retweet_count
+            parsed_tweet['favorite'] = tweet.favorite_count
+            parsed_tweet['user'] = tweet.user
+
+            #analyzing relevance
+            parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
+
+            #exlcluding retweets
+            if tweet.retweet_count > 0:
+                # if tweet has retweets, ensure that it is appended only once
+                if parsed_tweet not in tweets:
+                    analyzed_tweets.append(parsed_tweet)
+            else:
+                analyzed_tweets.append(parsed_tweet)
+
+        df_tweets = pd.DataFrame(analyzed_tweets)
+        df_tweets.set_index('date')
+
+
+if __name__=='__main__':
+    main()

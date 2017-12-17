@@ -1,123 +1,123 @@
-import feedparser
 import datetime
+import re
+import tweepy
+from tweepy import OAuthHandler
 from pytz import timezone
 import pandas as pd
-from newspaper import Article
-import csv
-import unidecode
+from pandas_datareader.data import DataReader
 
-### CONTENT ###
-### 1. Creating CLASS of RSS Feed
-### 2. Declaring the INSTANCES of our class
-### 3. Main Function to fetch feeds and scrape news
+# Class constructor or initialization method.
+class TwitterClient(object):
+    # Class constructor or initialization method.
+    def __init__(self):
+        consumer_key = "xPdDjbhEHyFMzCW90KGAummxz"
+        consumer_secret = "zValY66MwanWf7XOqBNLFGqZsBpjq84Qo6jHddFOwhLnxSIOyJ"
+        access_token = "912230531089223680-9TlKB13hYMTkbJpRpKHCDxuWX0ugtUI"
+        access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
+        callback_url = "https://github.com/donilso/Bachelorarbeit_JonasIls"
 
-#________________________________________________________
-#________________________________________________________
-''' 1. Creating CLASS of RSS Feed '''
+        # attempt authentication
+        try:
+            # create OAuthHandler object
+            self.auth = OAuthHandler(consumer_key, consumer_secret)
+            # set access token and secret
+            self.auth.set_access_token(access_token, access_secret)
+            # create tweepy API object to fetch tweets
+            self.api = tweepy.API(self.auth)
+        except:
+            print("Error: Authentication Failed")
 
-class RSSFeeds(object):
+    def word_in_text(self, text):
+        keywords = ["stock", "price", "market", "share"]
 
-    # Creating List of instances to make class iterable
-    _by_company = []
+        for keyword in keywords:
 
-    # Declaring attributes of instances
-    def __init__(self, url_Feed, company_Feed):
-        self.url_Feed = url_Feed
-        self._by_company.append(self)
+            keyword = keyword.lower()
+            text = text.lower()
+            match = re.search(keyword, text)
+            if match:
+                return True
+            return False
 
-        self.company_Feed = company_Feed
+    def get_tweets(self, query, count):
+        '''
+        Main function to fetch tweets and parse them.
+        '''
+        # empty list to store parsed tweets
+        tweets = []
+
+        try:
+            # call twitter api to fetch tweets
+            fetched_tweets = self.api.search(q=query, count=count)
+
+            # parsing tweets one by one
+            for tweet in fetched_tweets:
+
+                # empty dictionary to story required params of tweet
+                parsed_tweet = {}
+
+                # fetch text and language
+                parsed_tweet['text'] = tweet.text
+                parsed_tweet['lang'] = tweet.lang
+
+                # analyszing date & time
+                timestamp = tweet.created_at
+
+                # adjusting timestamp to EST
+                EST = timezone('EST')
+                fmt = '%Y-%m-%d %H:%M:%S'
+                adjusting = timestamp.astimezone(EST).strftime(fmt)
+                timestamp_adj = datetime.datetime.strptime(adjusting, fmt)
+                parsed_tweet['time_adj'] = timestamp_adj.time()
+                parsed_tweet['time_fetched'] = timestamp.time()
+                parsed_tweet['date'] = timestamp_adj.date()
+
+                # converting timestamp to integer to classify tweets by "timeslot"
+                def to_integer(ts):
+                    return 100 * ts.hour + ts.minute
+
+                time_int = to_integer(timestamp_adj.time())
+                #
+                if time_int > 930 and time_int < 1600:
+                    parsed_tweet["timeslot"] = "during"
+                else:
+                    if time_int > 0 and time_int < 930:
+                        parsed_tweet["timeslot"] = "before"
+                    if time_int > 1600 and time_int < 2359:
+                        parsed_tweet["timeslot"] = "after"
+
+                # analyzing popularity
+                parsed_tweet['retweets'] = tweet.retweet_count
+                parsed_tweet['favorite'] = tweet.favorite_count
+
+                user_data = tweet.user
+                parsed_tweet['user_name'] = user_data.name
+                parsed_tweet['user_follower'] = user_data.followers_count
+
+                # analyzing relevance
+                parsed_tweet['relevant'] = self.word_in_text(parsed_tweet['text'])
+
+                # exlcluding retweets
+                if tweet.retweet_count > 0:
+                    # if tweet has retweets, ensure that it is appended only once
+                    if parsed_tweet not in tweets:
+                        tweets.append(parsed_tweet)
+                else:
+                    tweets.append(parsed_tweet)
+
+            df_tweets = pd.DataFrame(tweets).set_index('date')
+
+            return df_tweets
+        except tweepy.TweepError as e:
+            print("Error : " + str(e))
+
+def main():
+        # creating object of TwitterClient Class
+        api = TwitterClient()
+        # calling function to get tweets
+        tweets = api.get_tweets(query='$GE', count=200)
+        print(tweets)
 
 
-
-GE = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:GE&ei=YqstWoDnMZDDsAGv8pCACg&output=rss',
-                          'http://finance.yahoo.com/rss/headline?s=GE'],
-              company_Feed='$GE')
-
-for company in RSSFeeds._by_company:
-
-    # List to Store data
-    feed = []
-
-    # List of Links to sort out duplicates
-    # links =[]
-
-    # fetching every feed per company
-    for URL in company.url_Feed:
-
-        fetched_feed = feedparser.parse(URL)
-
-        # parsing every entry of feed
-        for entry in fetched_feed.entries:
-
-            # dictionary to store data
-            parsed_link = {}
-
-            parsed_link['link'] = unidecode.unidecode(entry.link)
-
-            # parse timestamp
-            p = entry.published.replace("Z", "UTC")
-            published = p.replace(",","")
-
-            ts_weekday , ts_day, ts_month, ts_year, ts_time, ts_timezone = published.split(" ")
-
-            if '+' in ts_timezone:
-                fmt = '%a %d %b %Y %H:%M:%S %z'
-            elif '-' in ts_timezone:
-                fmt = '%a %d %b %Y %H:%M:%S %z'
-
-            else:
-                fmt = '%a %d %b %Y %H:%M:%S %Z'
-
-            timestamp = datetime.datetime.strptime(published, fmt)
-
-            # adjusting timestamp to Eastern Standard Time
-            EST = timezone('EST')
-            fmt_adj = '%Y-%m-%d %H:%M:%S'
-            adjusting_tz = timestamp.astimezone(EST).strftime(fmt_adj)
-
-            timestamp_fetched = timestamp.strftime(fmt_adj)
-            timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
-
-            parsed_link['datetime_fetched'] = unidecode.unidecode(str(timestamp_fetched))
-            parsed_link['date'] = unidecode.unidecode(str(timestamp_adj))
-
-            print(parsed_link['datetime_fetched'], parsed_link['date'])
-
-            # classifying news
-            def to_integer(ts):
-                return 100 * ts.hour + ts.minute
-
-            time_int = to_integer(timestamp_adj.time())
-
-            if time_int > 930 and time_int < 1600:
-                parsed_link["Timeslot"] = "DURING"
-
-
-            else:
-                if time_int > 0 and time_int < 930:
-                    parsed_link["Timeslot"] = "BEFORE"
-
-                if time_int > 1600 and time_int < 2359:
-                    parsed_link["Timeslot"] = "AFTER"
-
-            # extract atricle from HTML with newspaper lib
-            try:
-                article = Article(parsed_link['link'])
-                article.download()
-                article.parse()
-                content = article.text
-                parsed_link['article'] = unidecode.unidecode(content)
-
-            except:
-                parsed_link['atricle'] = "Error accessing {}".format(parsed_link['link'])
-
-            # append link to list of links to sort out duplicate links in the next step
-            # links.append(parsed_link['link'])
-
-            # append data of every article to list
-            if parsed_link not in feed:
-                feed.append(parsed_link)
-
-    df_new = pd.DataFrame(feed).set_index('date')
-
-    print(df_new)
+if __name__ == '__main__':
+    main()
