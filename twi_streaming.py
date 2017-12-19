@@ -121,7 +121,6 @@ consumer_key = "xPdDjbhEHyFMzCW90KGAummxz"
 consumer_secret = "zValY66MwanWf7XOqBNLFGqZsBpjq84Qo6jHddFOwhLnxSIOyJ"
 access_token = "912230531089223680-9TlKB13hYMTkbJpRpKHCDxuWX0ugtUI"
 access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
-callback_url = "https://github.com/donilso/Bachelorarbeit_JonasIls"
 
 
 #This is a basic listener that just prints received tweets to stdout.
@@ -141,7 +140,7 @@ if __name__ == '__main__':
     l = StdOutListener()
     auth = OAuthHandler(consumer_key, consumer_secret)
     auth.secure = True
-    auth.set_access_token(access_token, access_secret, callback_url)
+    auth.set_access_token(access_token, access_secret)
 
     stream = Stream(auth, l)
 
@@ -152,4 +151,3 @@ if __name__ == '__main__':
         f.wrtie(data)
 
         f.close()
-

@@ -162,20 +162,19 @@ for company in RSSFeeds._by_company:
             else:
                 fmt = '%a %d %b %Y %H:%M:%S %Z'
 
-            timestamp = datetime.datetime.strptime(published, fmt)
+            timestamp_fetched = datetime.datetime.strptime(published, fmt)
 
             # adjusting timestamp to Eastern Standard Time
             EST = timezone('EST')
             fmt_adj = '%Y-%m-%d %H:%M:%S'
-            adjusting_tz = timestamp.astimezone(EST).strftime(fmt_adj)
+            adjusting_tz = timestamp_fetched.astimezone(EST).strftime(fmt_adj)
 
-            timestamp_fetched = timestamp.strftime(fmt_adj)
+            #timestamp_fetched = timestamp.strftime(fmt_adj)
             timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
 
-            parsed_link['datetime_fetched'] = unidecode.unidecode(str(timestamp_fetched))
-            parsed_link['date'] = unidecode.unidecode(str(timestamp_adj))
-
-            print(parsed_link['datetime_fetched'], parsed_link['date'])
+            parsed_link['time_fetched'] = timestamp_fetched.time()
+            parsed_link['time_adj'] = timestamp_adj.time()
+            parsed_link['date'] =timestamp_adj.date()
 
             # classifying news
             def to_integer(ts):
@@ -203,7 +202,7 @@ for company in RSSFeeds._by_company:
                 parsed_link['article'] = unidecode.unidecode(content)
 
             except:
-                parsed_link['atricle'] = "Error accessing {}".format(parsed_link['link'])
+                parsed_link['article'] = "Error accessing {}".format(parsed_link['link'])
 
             # append link to list of links to sort out duplicate links in the next step
             # links.append(parsed_link['link'])
@@ -213,6 +212,7 @@ for company in RSSFeeds._by_company:
                 feed.append(parsed_link)
 
     df_new = pd.DataFrame(feed).set_index('date')
+    print(df_new)
     df_old = pd.read_csv(
         'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
         encoding="utf-8", index_col='date')
