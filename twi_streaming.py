@@ -2,13 +2,7 @@ import tweepy
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
-import time
-import string
-import json
-import pandas as pd
-import json
-import matplotlib.pyplot as plt
-import re
+
 
 class RSSFeeds(object):
 

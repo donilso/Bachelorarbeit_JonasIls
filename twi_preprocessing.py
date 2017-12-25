@@ -137,6 +137,7 @@ def extract_link(text):
 def main():
     for company in RSSFeeds._by_company:
         #Reading Tweets
+
         tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_feed)
 
         tweets_data = []
