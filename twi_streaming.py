@@ -122,10 +122,11 @@ class StdOutListener(StreamListener):
 
     def on_data(self, data):
         print (data)
-        return True
+        return True, data
+
 
     def on_error(self, status):
-        print (status)
+        print(status)
 
 
 if __name__ == '__main__':
@@ -138,10 +139,13 @@ if __name__ == '__main__':
 
     stream = Stream(auth, l)
 
+    ticker = []
     for company in RSSFeeds._by_company:
-        data = stream.filter(track=company.company_Feed)
+        ticker.append(company.company_Feed)
 
-        f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_Feed), a)
-        f.wrtie(data)
+    data = stream.filter(track=ticker)
 
-        f.close()
+    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
+    f.wrtie(data)
+
+    f.close()

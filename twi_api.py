@@ -25,7 +25,7 @@ import datetime
 import re
 import tweepy
 from tweepy import OAuthHandler
-from textblob import TextBlob
+#from textblob import TextBlob
 from pytz import timezone
 import pandas as pd
 from pandas_datareader.data import DataReader
@@ -34,10 +34,10 @@ from pandas_datareader.data import DataReader
 class TwitterClient(object):
     # Class constructor or initialization method.
     def __init__(self):
-        consumer_key = "8Ca3VZdZ8FAHBQHY5Q4JqQJ95"
-        consumer_secret = "jAooexmkwG8QxW8ODcK8FqNB5ZLVqaoqA5lgfINqucJYMuNoJE"
-        access_token = "912230531089223680-0UiOqekdECbqtKtHaPF2mnZVejrgmb5"
-        access_secret = "SCGpxSkF5jwszN59etpVRKs4B9oi5wbCFysQIW1MgDmMD"
+        consumer_key = "xPdDjbhEHyFMzCW90KGAummxz"
+        consumer_secret = "zValY66MwanWf7XOqBNLFGqZsBpjq84Qo6jHddFOwhLnxSIOyJ"
+        access_token = "912230531089223680-9TlKB13hYMTkbJpRpKHCDxuWX0ugtUI"
+        access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
 
         # attempt authentication
         try:
@@ -80,7 +80,7 @@ class TwitterClient(object):
 # 1.3 Collecting Tweets
 # __________________________________________________________________
 
-    def get_tweets(self, query, since, until):
+    def get_tweets(self, query, count):
         '''
         Main function to fetch tweets and parse them.
         '''
@@ -89,7 +89,7 @@ class TwitterClient(object):
 
         try:
             # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q=query, since=since, until=until)
+            fetched_tweets = self.api.search(q=query, count=count)
 
             # parsing tweets one by one
             for tweet in fetched_tweets:
@@ -114,11 +114,14 @@ class TwitterClient(object):
                 parsed_tweet['text'] = tweet.text
 
                 # saving sentiment
-                parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
+                #parsed_tweet['sentiment'] = self.__get_tweet_sentiment__(tweet.text)
 
                 # saving timestamp
                 parsed_tweet['datetime_adjusted'] = timestamp_adjusted
                 parsed_tweet['time_int'] = time_int
+                parsed_tweet['entities'] = tweet.entities
+
+                print(parsed_tweet['entities'])
 
                 # exlcluding irrelevant tweets
                 #   1. excluding tweets outside the relevant time range
@@ -249,3 +252,13 @@ def correlation():
     print(correlation_positive)
 
     return correlation
+
+def main():
+    # creating object of TwitterClient Class
+    api = TwitterClient()
+    # calling function to get tweets
+    api.get_tweets(query='$MSFT', count=200)
+
+
+if __name__ == '__main__':
+    main()
