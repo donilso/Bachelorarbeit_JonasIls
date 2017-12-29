@@ -2,6 +2,8 @@ import tweepy
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
+import boto3
+
 
 
 class RSSFeeds(object):
@@ -121,12 +123,36 @@ access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
 class StdOutListener(StreamListener):
 
     def on_data(self, data):
-        print (data)
-        return True, data
+        try:
+            with open('file/path', 'a') as f:
+                f.write(data)
+                print(data)
+                return True
+        except BaseException as e:
+            print("Error on_data: %s" % str(e))
+            time.sleep(5)
+        return True
+
+    #def on_data(self, data):
+    #    print (data)
+    #    return True, data
 
 
     def on_error(self, status):
         print(status)
+
+
+##################################
+### S3 ACCESS ####################
+##################################
+
+access_key_aws = "AKIAIS73WM2UOMDBX5OA"
+access_secret_key_aws = "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"
+bucket_name = "lambdastream"
+
+s3 = boto3.resource('s3')
+file = s3.Object(bucket_name,'key')
+
 
 
 if __name__ == '__main__':
@@ -139,13 +165,14 @@ if __name__ == '__main__':
 
     stream = Stream(auth, l)
 
+
     ticker = []
     for company in RSSFeeds._by_company:
         ticker.append(company.company_Feed)
 
     data = stream.filter(track=ticker)
 
-    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
-    f.wrtie(data)
+#    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
+#    f.wrtie(data)
 
-    f.close()
+#    f.close()
