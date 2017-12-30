@@ -97,6 +97,8 @@ class TwitterClient(object):
                 parsed_tweet = {}
 
                 tweet_timestamp = tweet.created_at
+                print(tweet_timestamp)
+
 
                 # adjusting timestamp to EST
                 EST = timezone('EST')
@@ -107,6 +109,7 @@ class TwitterClient(object):
                 # converting timestamp to integer to exclude tweets outside the relevant time range
                 def to_integer(ts):
                     return 100 * ts.hour + ts.minute
+
 
                 time_int = to_integer(timestamp_adjusted.time())
 
@@ -139,7 +142,6 @@ class TwitterClient(object):
 
         except tweepy.TweepError as e:
             print("Error : " + str(e))
-
 
 # __________________________________________________________________
 # 1.4 Creating timeseries of daily sentiment

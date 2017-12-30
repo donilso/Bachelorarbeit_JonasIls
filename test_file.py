@@ -146,12 +146,12 @@ class StdOutListener(StreamListener):
 ### S3 ACCESS ####################
 ##################################
 
-#access_key_aws = "AKIAIS73WM2UOMDBX5OA"
-#access_secret_key_aws = "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"
-#bucket_name = "lambdastream"
+access_key_aws = "AKIAIS73WM2UOMDBX5OA"
+access_secret_key_aws = "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"
+bucket_name = "lambdastream"
 
-#s3 = boto3.resource('s3')
-#file = s3.Object(bucket_name,'key')
+s3 = boto3.resource('s3')
+file = s3.Object(bucket_name,'key')
 
 
 
@@ -164,11 +164,16 @@ if __name__ == '__main__':
     auth.set_access_token(access_token, access_secret)
 
     stream = Stream(auth, l)
+
+    ticker =[]
+    for company in RSSFeeds._by_company:
+        ticker.append(company.company_Feed)
+
     data = stream.filter(track=ticker)
 
     tweets =[]
 
-    for tweet in tweets:
+    for tweet in data:
         tweets.append(tweet)
 
         while len(tweets) < 100:
@@ -177,7 +182,7 @@ if __name__ == '__main__':
 
         else:
             f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
-            f.wrtie(data)
+            f.wrtie(tweets)
 
             f.close()
             tweets.clear()

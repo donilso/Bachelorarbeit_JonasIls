@@ -120,26 +120,22 @@ access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
 
 
 #This is a basic listener that just prints received tweets to stdout.
-class StdOutListener(StreamListener):
+class MyListener(StreamListener):
 
     def on_data(self, data):
         try:
-            with open('file/path', 'a') as f:
-                f.write(data)
+            #with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json', 'a') as f:
+            #    f.write(data)
+
                 print(data)
                 return True
         except BaseException as e:
             print("Error on_data: %s" % str(e))
-            time.sleep(5)
         return True
-
-    #def on_data(self, data):
-    #    print (data)
-    #    return True, data
-
 
     def on_error(self, status):
         print(status)
+        return True
 
 
 ##################################
@@ -157,22 +153,25 @@ file = s3.Object(bucket_name,'key')
 
 if __name__ == '__main__':
 
+    #ticker = []
+    #for company in RSSFeeds._by_company:
+    #    ticker.append(company.company_Feed)
+
+    #print(ticker)
+
     #This handles Twitter authetification and the connection to Twitter Streaming API
-    l = StdOutListener()
+    l = MyListener()
     auth = OAuthHandler(consumer_key, consumer_secret)
     auth.secure = True
     auth.set_access_token(access_token, access_secret)
 
     stream = Stream(auth, l)
 
-
-    ticker = []
-    for company in RSSFeeds._by_company:
-        ticker.append(company.company_Feed)
-
-    data = stream.filter(track=ticker)
+    data = stream.filter(track=['$AAPL'],
+                         languages=['en'])
 
 #    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
 #    f.wrtie(data)
 
 #    f.close()
+#, '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP']

@@ -9,6 +9,7 @@ import pandas as pd
 import json
 import matplotlib.pyplot as plt
 import re
+from pytz import timezone
 
 class RSSFeeds(object):
 
@@ -135,10 +136,10 @@ def extract_link(text):
 
 
 def main():
-    for company in RSSFeeds._by_company:
+    #for company in RSSFeeds._by_company:
         #Reading Tweets
 
-        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_feed)
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json'
 
         tweets_data = []
         tweets_file = open(tweets_data_path, "r")
@@ -155,9 +156,9 @@ def main():
         for tweet in tweets_data:
             parsed_tweet = {}
 
-            parsed_tweet['text'] =tweet.text
-            parsed_tweet['lang'] =tweet.lang
-            timestamp = tweet.created_at
+            parsed_tweet['text'] =tweet['text']
+            parsed_tweet['lang'] =tweet['lang']
+            timestamp = tweet['created_at']
 
             # adjusting timestamp to EST
             EST = timezone('EST')
@@ -181,9 +182,9 @@ def main():
                 if time_int > 1600 and time_int < 2359:
                     parsed_tweet["timeslot"] = "after"
 
-            parsed_tweet['retweets'] = tweet.retweet_count
-            parsed_tweet['favorite'] = tweet.favorite_count
-            parsed_tweet['user'] = tweet.user
+            parsed_tweet['retweets'] = tweet['retweet_count']
+            parsed_tweet['favorite'] = tweet['favorite_count']
+            parsed_tweet['user'] = tweet['user']
 
             #analyzing relevance
             parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
@@ -197,8 +198,8 @@ def main():
                 analyzed_tweets.append(parsed_tweet)
 
         df_tweets = pd.DataFrame(analyzed_tweets)
-        df_tweets.set_index('date')
-
+        #df_tweets.set_index('date')
+        print(df_tweets)
 
 if __name__=='__main__':
     main()
