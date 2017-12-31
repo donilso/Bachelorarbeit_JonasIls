@@ -23,12 +23,18 @@ print("Twitter Crawler")
 
 import datetime
 import re
+
+import pandas as pd
 import tweepy
+from pandas_datareader.data import DataReader
+from pytz import timezone
+from textblob import TextBlob
 from tweepy import OAuthHandler
 #from textblob import TextBlob
 from pytz import timezone
 import pandas as pd
 from pandas_datareader.data import DataReader
+
 
 # Class constructor or initialization method.
 class TwitterClient(object):

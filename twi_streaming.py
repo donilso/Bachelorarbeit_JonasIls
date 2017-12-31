@@ -170,8 +170,9 @@ if __name__ == '__main__':
     data = stream.filter(track=['$AAPL'],
                          languages=['en'])
 
-#    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
-#    f.wrtie(data)
+        f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_Feed), 'a')
+        f.wrtie(data)
 
-#    f.close()
-#, '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP']
+        f.close()
+
+    exit()
