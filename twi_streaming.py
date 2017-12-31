@@ -2,6 +2,8 @@ import tweepy
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
+import boto3
+
 
 
 class RSSFeeds(object):
@@ -118,30 +120,58 @@ access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
 
 
 #This is a basic listener that just prints received tweets to stdout.
-class StdOutListener(StreamListener):
+class MyListener(StreamListener):
 
     def on_data(self, data):
-        print (data)
+        try:
+            #with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json', 'a') as f:
+            #    f.write(data)
+
+                print(data)
+                return True
+        except BaseException as e:
+            print("Error on_data: %s" % str(e))
         return True
 
     def on_error(self, status):
-        print (status)
+        print(status)
+        return True
+
+
+##################################
+### S3 ACCESS ####################
+##################################
+
+access_key_aws = "AKIAIS73WM2UOMDBX5OA"
+access_secret_key_aws = "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"
+bucket_name = "lambdastream"
+
+s3 = boto3.resource('s3')
+file = s3.Object(bucket_name,'key')
+
 
 
 if __name__ == '__main__':
 
+    #ticker = []
+    #for company in RSSFeeds._by_company:
+    #    ticker.append(company.company_Feed)
+
+    #print(ticker)
+
     #This handles Twitter authetification and the connection to Twitter Streaming API
-    l = StdOutListener()
+    l = MyListener()
     auth = OAuthHandler(consumer_key, consumer_secret)
     auth.secure = True
     auth.set_access_token(access_token, access_secret)
 
     stream = Stream(auth, l)
 
-    for company in RSSFeeds._by_company:
-        data = stream.filter(track=company.company_Feed)
+    data = stream.filter(track=['$AAPL'],
+                         languages=['en'])
 
-        f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data_{}.txt'.format(company.company_Feed), a)
-        f.wrtie(data)
+#    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
+#    f.wrtie(data)
 
-        f.close()
+#    f.close()
+#, '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP']
