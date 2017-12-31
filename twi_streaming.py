@@ -3,8 +3,8 @@ from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
 import boto3
-
-
+from contextlib import contextmanager
+import tempfile
 
 class RSSFeeds(object):
 
@@ -149,10 +149,14 @@ bucket_name = "lambdastream"
 s3 = boto3.resource('s3')
 file = s3.Object(bucket_name,'key')
 
+@contextmanager
+def s3upload(key):
+    with tempfile.SpooledTemporaryFile(max_size=1024*10) as buffer:  # Size in bytes
+        yield buffer  # After this, the file is typically written to
+        buffer.seek(0)  # So that reading the file starts from its beginning
+        key.set_contents_from_file(buffer)
 
-
-if __name__ == '__main__':
-
+def lambda_handler():
     #ticker = []
     #for company in RSSFeeds._by_company:
     #    ticker.append(company.company_Feed)
@@ -167,11 +171,13 @@ if __name__ == '__main__':
 
     stream = Stream(auth, l)
 
-    data = stream.filter(track=['$AAPL'],
+    data = stream.filter(track=['$MSFT','$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP'],
                          languages=['en'])
 
-#    f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
-#    f.wrtie(data)
+    k = Key(b)
+    k.key = filename
+    k.set_metadata("Content-Type", mime)
 
-#    f.close()
-#, '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP']
+    with s3upload(k) as out:
+        out.write(chunklet)
+
