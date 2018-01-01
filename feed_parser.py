@@ -213,20 +213,20 @@ for company in RSSFeeds._by_company:
 
     df_new = pd.DataFrame(feed).set_index('date')
     print(df_new)
-    df_old = pd.read_csv(
-        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-        encoding="utf-8", index_col='date')
+    #df_old = pd.read_csv(
+    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+    #    encoding="utf-8", index_col='date')
 
     df_merged = pd.concat([df_old, df_new])
     df_merged = df_merged.drop_duplicates(subset='link')
 
-    df_merged.to_csv(
-        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-        index_label='date', encoding="utf-8")
-
-    #df_new.to_csv(
+    #df_merged.to_csv(
     #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
     #    index_label='date', encoding="utf-8")
+
+    df_new.to_csv(
+        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
+        index_label='date', encoding="utf-8")
 
     print("DF Merged")
     print(len(df_merged))
