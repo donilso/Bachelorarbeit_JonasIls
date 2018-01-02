@@ -10,6 +10,7 @@ import json
 import matplotlib.pyplot as plt
 import re
 from pytz import timezone
+import datetime
 
 class RSSFeeds(object):
 
@@ -158,16 +159,19 @@ def main():
 
             parsed_tweet['text'] =tweet['text']
             parsed_tweet['lang'] =tweet['lang']
-            timestamp = tweet['created_at']
+            ts = tweet['created_at']
+
+            fmt = '%a %b %d %H:%M:%S %z %Y'
+            timestamp = datetime.datetime.strptime(ts, fmt)
 
             # adjusting timestamp to EST
             EST = timezone('EST')
-            fmt = '%Y-%m-%d %H:%M:%S'
-            adjusting = timestamp.astimezone(EST).strftime(fmt)
-            timestamp_adj = datetime.datetime.strptime(adjusting, fmt)
-            parsed_tweet['time_adj'] = timestamp_adj.time
-            parsed_tweet['time_fetched'] = timestamp.time
-            parse_tweets['date'] = timestamp_adj.date
+            fmt_adj = '%Y-%m-%d %H:%M:%S'
+            adjusting = timestamp.astimezone(EST).strftime(fmt_adj)
+            timestamp_adj = datetime.datetime.strptime(adjusting, fmt_adj)
+            parsed_tweet['time_adj'] = timestamp_adj.time()
+            parsed_tweet['time_fetched'] = timestamp.time()
+            parsed_tweet['date'] = timestamp_adj.date()
 
             # converting timestamp to integer to classify tweets by "timeslot"
             def to_integer(ts):
@@ -190,7 +194,7 @@ def main():
             parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
 
             #exlcluding retweets
-            if tweet.retweet_count > 0:
+            if tweet['retweet_count'] > 0:
                 # if tweet has retweets, ensure that it is appended only once
                 if parsed_tweet not in tweets:
                     analyzed_tweets.append(parsed_tweet)
@@ -198,7 +202,7 @@ def main():
                 analyzed_tweets.append(parsed_tweet)
 
         df_tweets = pd.DataFrame(analyzed_tweets)
-        #df_tweets.set_index('date')
+        df_tweets = df_tweets.set_index('date')
         print(df_tweets)
 
 if __name__=='__main__':
