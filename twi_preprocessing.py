@@ -142,6 +142,12 @@ def main():
 
         tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json'
 
+        company_symbols = []
+
+        for company in RSSFeeds._by_company:
+            company_symbol = company.company_Feed.replace("$", "")
+            company_symbols.append(company_symbol)
+
         tweets_data = []
         tweets_file = open(tweets_data_path, "r")
         for line in tweets_file:
@@ -153,6 +159,8 @@ def main():
 
         #Structuring Tweets
         analyzed_tweets = []
+
+        noreference_count = 0
 
         for tweet in tweets_data:
             parsed_tweet = {}
@@ -190,6 +198,19 @@ def main():
             parsed_tweet['favorite'] = tweet['favorite_count']
             parsed_tweet['user'] = tweet['user']
 
+            entities = tweet['entities']
+            tweet_symbols_dict = entities['symbols']
+            tweet_symbols = []
+
+            for tweet_symbol_dict in tweet_symbols_dict:
+                tweet_symbols.append(tweet_symbol_dict['text'])
+
+            referenced_company = [x for x in company_symbols if x in tweet_symbols]
+            if not referenced_company:
+                noreference_count = noreference_count + 1
+
+            parsed_tweet['reference'] = referenced_company
+
             #analyzing relevance
             parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
 
@@ -203,7 +224,12 @@ def main():
 
         df_tweets = pd.DataFrame(analyzed_tweets)
         df_tweets = df_tweets.set_index('date')
-        print(df_tweets)
+
+        noreference_ratio = noreference_count / len(df_tweets.index)
+
+        print(len(df_tweets.index))
+        print(noreference_count)
+        print(noreference_ratio)
 
 if __name__=='__main__':
     main()

@@ -126,107 +126,106 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
 #________________________________________________________
 '''3. Main Function to fetch feeds and scrape news'''
 
+if __name__ == "__main__":
+    for company in RSSFeeds._by_company:
 
-for company in RSSFeeds._by_company:
+        # List to Store data
+        feed = []
 
-    # List to Store data
-    feed = []
+        # List of Links to sort out duplicates
+        # links =[]
 
-    # List of Links to sort out duplicates
-    # links =[]
+        # fetching every feed per company
+        for URL in company.url_Feed:
 
-    # fetching every feed per company
-    for URL in company.url_Feed:
+            fetched_feed = feedparser.parse(URL)
 
-        fetched_feed = feedparser.parse(URL)
+            # parsing every entry of feed
+            for entry in fetched_feed.entries:
 
-        # parsing every entry of feed
-        for entry in fetched_feed.entries:
+                # dictionary to store data
+                parsed_link = {}
 
-            # dictionary to store data
-            parsed_link = {}
+                parsed_link['link'] = unidecode.unidecode(entry.link)
 
-            parsed_link['link'] = unidecode.unidecode(entry.link)
+                # parse timestamp
+                p = entry.published.replace("Z", "UTC")
+                published = p.replace(",","")
 
-            # parse timestamp
-            p = entry.published.replace("Z", "UTC")
-            published = p.replace(",","")
+                ts_weekday , ts_day, ts_month, ts_year, ts_time, ts_timezone = published.split(" ")
 
-            ts_weekday , ts_day, ts_month, ts_year, ts_time, ts_timezone = published.split(" ")
+                # identifying the format of timezone
+                if '+' in ts_timezone:
+                    fmt = '%a %d %b %Y %H:%M:%S %z'
+                elif '-' in ts_timezone:
+                    fmt = '%a %d %b %Y %H:%M:%S %z'
+                else:
+                    fmt = '%a %d %b %Y %H:%M:%S %Z'
 
-            # identifying the format of timezone
-            if '+' in ts_timezone:
-                fmt = '%a %d %b %Y %H:%M:%S %z'
-            elif '-' in ts_timezone:
-                fmt = '%a %d %b %Y %H:%M:%S %z'
-            else:
-                fmt = '%a %d %b %Y %H:%M:%S %Z'
+                timestamp_fetched = datetime.datetime.strptime(published, fmt)
 
-            timestamp_fetched = datetime.datetime.strptime(published, fmt)
+                # adjusting timestamp to Eastern Standard Time
+                EST = timezone('EST')
+                fmt_adj = '%Y-%m-%d %H:%M:%S'
+                adjusting_tz = timestamp_fetched.astimezone(EST).strftime(fmt_adj)
 
-            # adjusting timestamp to Eastern Standard Time
-            EST = timezone('EST')
-            fmt_adj = '%Y-%m-%d %H:%M:%S'
-            adjusting_tz = timestamp_fetched.astimezone(EST).strftime(fmt_adj)
+                #timestamp_fetched = timestamp.strftime(fmt_adj)
+                timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
 
-            #timestamp_fetched = timestamp.strftime(fmt_adj)
-            timestamp_adj = datetime.datetime.strptime(adjusting_tz, fmt_adj)
+                parsed_link['time_fetched'] = timestamp_fetched.time()
+                parsed_link['time_adj'] = timestamp_adj.time()
+                parsed_link['date'] =timestamp_adj.date()
 
-            parsed_link['time_fetched'] = timestamp_fetched.time()
-            parsed_link['time_adj'] = timestamp_adj.time()
-            parsed_link['date'] =timestamp_adj.date()
+                # classifying news
+                def to_integer(ts):
+                    return 100 * ts.hour + ts.minute
 
-            # classifying news
-            def to_integer(ts):
-                return 100 * ts.hour + ts.minute
+                time_int = to_integer(timestamp_adj.time())
 
-            time_int = to_integer(timestamp_adj.time())
-
-            if time_int > 930 and time_int < 1600:
-                parsed_link["Timeslot"] = "DURING"
+                if time_int > 930 and time_int < 1600:
+                    parsed_link["Timeslot"] = "DURING"
 
 
-            else:
-                if time_int > 0 and time_int < 930:
-                    parsed_link["Timeslot"] = "BEFORE"
+                else:
+                    if time_int > 0 and time_int < 930:
+                        parsed_link["Timeslot"] = "BEFORE"
 
-                if time_int > 1600 and time_int < 2359:
-                    parsed_link["Timeslot"] = "AFTER"
+                    if time_int > 1600 and time_int < 2359:
+                        parsed_link["Timeslot"] = "AFTER"
 
-            # extract atricle from HTML with newspaper lib
-            try:
-                article = Article(parsed_link['link'])
-                article.download()
-                article.parse()
-                content = article.text
-                parsed_link['article'] = unidecode.unidecode(content)
+                # extract atricle from HTML with newspaper lib
+                try:
+                    article = Article(parsed_link['link'])
+                    article.download()
+                    article.parse()
+                    content = article.text
+                    parsed_link['article'] = unidecode.unidecode(content)
 
-            except:
-                parsed_link['article'] = "Error accessing {}".format(parsed_link['link'])
+                except:
+                    parsed_link['article'] = "Error accessing {}".format(parsed_link['link'])
 
-            # append link to list of links to sort out duplicate links in the next step
-            # links.append(parsed_link['link'])
+                # append link to list of links to sort out duplicate links in the next step
+                # links.append(parsed_link['link'])
 
-            # append data of every article to list
-            if parsed_link not in feed:
-                feed.append(parsed_link)
+                # append data of every article to list
+                if parsed_link not in feed:
+                    feed.append(parsed_link)
 
-    df_new = pd.DataFrame(feed).set_index('date')
-    print(df_new)
-    #df_old = pd.read_csv(
-    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-    #    encoding="utf-8", index_col='date')
+        df_new = pd.DataFrame(feed).set_index('date')
+        print(df_new)
+        df_old = pd.read_csv(
+            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
+            encoding="utf-8", index_col='date')
 
-    df_merged = pd.concat([df_old, df_new])
-    df_merged = df_merged.drop_duplicates(subset='link')
+        df_merged = pd.concat([df_old, df_new])
+        df_merged = df_merged.drop_duplicates(subset='link')
 
-    #df_merged.to_csv(
-    #    'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-    #    index_label='date', encoding="utf-8")
+        df_merged.to_csv(
+            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
+            index_label='date', encoding="utf-8")
 
-    df_new.to_csv(
-        'C:\\Users\\Open Account\\Documents\\BA_Jonas\\Newsfeed_{}.csv'.format(company.company_Feed),
-        index_label='date', encoding="utf-8")
+        #df_new.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
+        #    index_label='date', encoding="utf-8")
 
-    print("DF Merged")
-    print(len(df_merged))
+        #print("DF Merged")
+        #print(len(df_merged))
