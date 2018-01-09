@@ -24,9 +24,6 @@ class MyListener(StreamListener):
             with open('twitter_streaming.json', 'a') as f:
                 f.write(data)
 
-            with open('twitter_streaming.txt', 'a') as f:
-                f.write(data)
-
             print(data)
             return True
         except BaseException as e:

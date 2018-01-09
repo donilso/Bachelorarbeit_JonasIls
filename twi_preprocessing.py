@@ -110,7 +110,7 @@ VZ = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:
               company_Feed='$VZ')
 V = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:V&ei=Fq0tWumSJsbIU_CyofgB&output=rss',
                        'http://finance.yahoo.com/rss/headline?s=V'],
-             company_Feed='V')
+             company_Feed='$V')
 WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:WMT&ei=Mq0tWtD8L4KCsQH5jb3gCA&output=rss',
                          'http://finance.yahoo.com/rss/headline?s=WMT'],
                company_Feed='$WMT')
@@ -136,11 +136,12 @@ def extract_link(text):
     return ''
 
 
-def main():
+
+def analyze_tweets():
     #for company in RSSFeeds._by_company:
         #Reading Tweets
 
-        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json'
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming1.json'
 
         company_symbols = []
 
@@ -160,9 +161,11 @@ def main():
         #Structuring Tweets
         analyzed_tweets = []
 
+
         noreference_count = 0
 
         for tweet in tweets_data:
+            print("Analyzing Tweet")
             parsed_tweet = {}
 
             parsed_tweet['text'] =tweet['text']
@@ -209,7 +212,7 @@ def main():
             if not referenced_company:
                 noreference_count = noreference_count + 1
 
-            parsed_tweet['reference'] = referenced_company
+            parsed_tweet['reference'] = ''.join(referenced_company)
 
             #analyzing relevance
             parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
@@ -225,11 +228,28 @@ def main():
         df_tweets = pd.DataFrame(analyzed_tweets)
         df_tweets = df_tweets.set_index('date')
 
+        # analyzing the stream
         noreference_ratio = noreference_count / len(df_tweets.index)
+
+        #for company_symbol in company_symbols:
+        #    df = pd.concat(df_tweets.loc[df_tweets['reference']==[company_symbol]])
+        #    df = df.set_index['date']
+        #    df.to_csv(
+        #        'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company_symbol),
+        #        index_label='date',
+        #        encoding="utf-8")
+
+        rows = df_tweets.loc[df_tweets['reference'] == 'MSFT']
+        rows.to_csv( 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
+                     index_label='date',
+                     encoding="utf-8")
 
         print(len(df_tweets.index))
         print(noreference_count)
         print(noreference_ratio)
+        print(df_tweets)
+
+
 
 if __name__=='__main__':
-    main()
+    analyze_tweets()
