@@ -109,81 +109,72 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                          'http://finance.yahoo.com/rss/headline?s=WMT'],
                company_Feed='$WMT')
 
-##################################
-### TWITTER STREAM ###############
-##################################
 
-consumer_key = "xPdDjbhEHyFMzCW90KGAummxz"
-consumer_secret = "zValY66MwanWf7XOqBNLFGqZsBpjq84Qo6jHddFOwhLnxSIOyJ"
-access_token = "912230531089223680-9TlKB13hYMTkbJpRpKHCDxuWX0ugtUI"
-access_secret = "nRAMXKPi33IO9esWebcjVikeBBF2XOzXyJ3ADD6kvaBIe"
+def clean_text(content):
+    emoticons_str = r"""
+        (?:
+            [:=;] # Eyes
+            [oO\-]? # Nose (optional)
+            [D\)\]\(\]/\\OpP] # Mouth
+        )"""
 
+    RT_mentions_str = r'(?:RT @[\w_]+)'
+    url_str = r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+'
+    html_str = r'<[^>]+>'
 
-#This is a basic listener that just prints received tweets to stdout.
-class StdOutListener(StreamListener):
+    regex_remove = [url_str, html_str, emoticons_str]
 
-    #def on_data(self, data):
-    #    try:
-    #        with open('file/path', 'a') as f:
-    #            f.write(data)
-    #            print(data)
-    #            return True
-    #    except BaseException as e:
-    #        print("Error on_data: %s" % str(e))
-    #        time.sleep(5)
-    #    return True
+    regex_str = [
+        r"(?:\#+[\w_]+[\w\'_\-]*[\w_]+)",  # hash-tags
+        r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
+        r"(?:[a-z][a-z'\-_]+[a-z])",  # words with - and '
+        r'(?:[\w_]+)',  # other words
+        r'(?:\S)'  # anything else
+    ]
 
-    def on_data(self, data):
-        print (data)
-        return True, data
+    tokens_re = re.compile(r'(' + '|'.join(regex_str) + ')', re.VERBOSE | re.IGNORECASE)
+    emoticon_re = re.compile(r'^' + emoticons_str + '$', re.VERBOSE | re.IGNORECASE)
 
+    def remove(content):
+        for expression in regex_remove:
+            return re.sub(expression, '', content)
 
-    def on_error(self, status):
-        print(status)
-
-
-##################################
-### S3 ACCESS ####################
-##################################
-
-access_key_aws = "AKIAIS73WM2UOMDBX5OA"
-access_secret_key_aws = "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"
-bucket_name = "lambdastream"
-
-s3 = boto3.resource('s3')
-file = s3.Object(bucket_name,'key')
+    def tokenize(text):
+        return tokens_re.findall(text)
 
 
+    def preprocess(content, lowercase=False):
+        text = remove(content)
+        tokens = tokenize(text)
+        if lowercase:
+            tokens = [token if emoticon_re.search(token) else token.lower() for token in tokens]
+        return tokens
 
-if __name__ == '__main__':
+    return preprocess(content)
 
-    #This handles Twitter authetification and the connection to Twitter Streaming API
-    l = StdOutListener()
-    auth = OAuthHandler(consumer_key, consumer_secret)
-    auth.secure = True
-    auth.set_access_token(access_token, access_secret)
 
-    stream = Stream(auth, l)
+def analyze_tweets():
+    #for company in RSSFeeds._by_company:
+        #Reading Tweets
 
-    ticker =[]
-    for company in RSSFeeds._by_company:
-        ticker.append(company.company_Feed)
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\20180114_1100twitter_streaming.json'
 
-    data = stream.filter(track=ticker)
+        tweets_data = []
+        tweets_file = open(tweets_data_path, "r")
+        for line in tweets_file:
+            try:
+                tweet = json.loads(line)
+                tweets_data.append(tweet)
+            except:
+                continue
 
-    tweets =[]
+            print(tweets_data)
+        print("Processing Tweets ...")
 
-    for tweet in data:
-        tweets.append(tweet)
+        for tweet in tweets_data:
+            tweet_text = clean_text(tweet['text'])
 
-        while len(tweets) < 100:
-            print(len(tweets))
-            continue
+            print(tweet_text)
 
-        else:
-            f = open('C:\\Users\\Open Account\\Documents\\BA_Jonas\\twitter_data.txt', 'a')
-            f.wrtie(tweets)
+analyze_tweets()
 
-            f.close()
-            tweets.clear()
-            continue

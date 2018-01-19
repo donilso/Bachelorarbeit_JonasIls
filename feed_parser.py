@@ -217,6 +217,10 @@ if __name__ == "__main__":
             'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
             encoding="utf-8", index_col='date')
 
+
+
+
+
         df_merged = pd.concat([df_old, df_new])
         df_merged = df_merged.drop_duplicates(subset='link')
 

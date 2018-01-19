@@ -145,6 +145,7 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                company_Feed='$WMT',
                 identifier = [])
 
+
 def word_in_text(text):
     keywords = ["stock", "price", "market", "share"]
 
@@ -157,30 +158,60 @@ def word_in_text(text):
             return True
         return False
 
+def clean_text(content):
+    emoticons_str = r"""
+        (?:
+            [:=;] # Eyes
+            [oO\-]? # Nose (optional)
+            [D\)\]\(\]/\\OpP] # Mouth
+        )"""
 
-def extract_link(text):
-    regex = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
-    match = re.search(regex, text)
-    if match:
-        return match.group()
-    return ''
+    RT_mentions_str = r'(?:RT @[\w_]+[:])'
+    url_str = r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+'
+    html_str = r'<[^>]+>'
+    hashtag_str = r"(?:\#+[\w_]+[\w\'_\-]*[\w_]+)"
+    cashtag_str = r"(?:\$+[\w_]+[\w\'_\-]*[\w_]+"
+
+    regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str]
+
+    regex_str = [
+        r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
+        r"(?:[a-z][a-z'\-_]+[a-z])",  # words with - and '
+        r'(?:[\w_]+)',  # other words
+        r'(?:\S)'  # anything else
+    ]
+
+    tokens_re = re.compile(r'(' + '|'.join(regex_str) + ')', re.VERBOSE | re.IGNORECASE)
+    emoticon_re = re.compile(r'^' + emoticons_str + '$', re.VERBOSE | re.IGNORECASE)
+
+    def remove(content):
+        return re.sub(r'(' + '|'.join(regex_remove) + ')', '', content, re.VERBOSE | re.IGNORECASE)
+
+    def tokenize(text):
+        return tokens_re.findall(text)
 
 
+
+    def preprocess(content, lowercase=False):
+        text = remove(content)
+        #tokens = tokenize(text)
+        #if lowercase:
+        #    tokens = [token if emoticon_re.search(token) else token.lower() for token in tokens]
+        return text
+
+    return preprocess(content)
 
 def analyze_tweets():
     #for company in RSSFeeds._by_company:
         #Reading Tweets
 
-        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming.json'
-
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\20180114_1100twitter_streaming.json'
 
         company_symbols = []
 
         for company in RSSFeeds._by_company:
             company_symbol = company.company_Feed.replace("$", "")
             company_symbols.append(company_symbol)
-
-        print(company_symbols)
 
         tweets_data = []
         tweets_file = open(tweets_data_path, "r")
@@ -203,9 +234,13 @@ def analyze_tweets():
             #Dictionary to store information about Tweet
             parsed_tweet = {}
 
+            parsed_tweet['id'] = tweet['id_str']
+
             #Get text and language
-            parsed_tweet['text'] =tweet['text']
-            parsed_tweet['lang'] =tweet['lang']
+            parsed_tweet['text'] = tweet['text']
+            parsed_tweet['text_clean'] = clean_text(tweet['text'])
+            print(parsed_tweet['text_clean'])
+            parsed_tweet['lang'] = tweet['lang']
             ts = tweet['created_at']
 
             #Get Timestamp and adjust Timestamp to EST
@@ -217,15 +252,15 @@ def analyze_tweets():
             fmt_adj = '%Y-%m-%d %H:%M:%S'
             adjusting = timestamp.astimezone(EST).strftime(fmt_adj)
             timestamp_adj = datetime.datetime.strptime(adjusting, fmt_adj)
-            parsed_tweet['time_adj'] = timestamp_adj.time()
-            parsed_tweet['time_fetched'] = timestamp.time()
+            parsed_tweet['time_adj'] = str(timestamp_adj.time())
+            parsed_tweet['time_fetched'] = str(timestamp.time())
             parsed_tweet['date'] = timestamp_adj.date()
 
             # converting timestamp to integer to classify tweets by "timeslot"
             def to_integer(ts):
                 return 100 * ts.hour + ts.minute
             time_int = to_integer(timestamp_adj.time())
-            #
+
             if time_int > 930 and time_int < 1600:
                 parsed_tweet["timeslot"] = "during"
             else:
@@ -237,8 +272,9 @@ def analyze_tweets():
             #Get information so evaluate popularity of tweet
             parsed_tweet['retweets'] = tweet['retweet_count']
             parsed_tweet['favorite'] = tweet['favorite_count']
-            parsed_tweet['user'] = tweet['user']
-            location = parsed_tweet['user']
+            user_dict = tweet['user']
+            parsed_tweet['user_id'] = user_dict['id_str']
+            parsed_tweet['user_followers'] = user_dict['followers_count']
 
             #Get Symbols to reference tweet to company
             entities = tweet['entities']
@@ -248,40 +284,50 @@ def analyze_tweets():
             for tweet_symbol_dict in tweet_symbols_dict:
                 tweet_symbols.append(tweet_symbol_dict['text'].upper())
 
-            if not tweet_symbols:
-                nosymbol_count = nosymbol_count + 1
+            if tweet_symbols:
+                parsed_tweet['symbols'] = tweet_symbols
 
             referenced_company = [x for x in company_symbols if x in tweet_symbols]
-            print(referenced_company)
-            if not referenced_company:
-                noreference_count = noreference_count + 1
 
-            parsed_tweet['reference'] = ''.join(referenced_company)
+            if referenced_company:
+               #parsed_tweet['reference'] = referenced_company
+                parsed_tweet['reference'] = ''.join(referenced_company)
+
+            for company_symbol in company_symbols:
+                parsed_tweet['xref_{}'.format(company_symbol)] = company_symbol in parsed_tweet['reference']
 
             #analyzing relevance
-            parsed_tweet['relevant'] = word_in_text(parsed_tweet['text'])
+            parsed_tweet['relevant'] = word_in_text(tweet['text'])
 
-            #exlcluding retweets
-            if tweet['retweet_count'] > 0:
-                # if tweet has retweets, ensure that it is appended only once
-                if parsed_tweet not in tweets:
-                    analyzed_tweets.append(parsed_tweet)
-            else:
-                analyzed_tweets.append(parsed_tweet)
+            RT_mentions_str = r'(?:RT @[\w_]+[:])'
+            if re.search(RT_mentions_str, tweet['text'], re.VERBOSE | re.IGNORECASE):
+                parsed_tweet['retweet'] = 'RT'
 
+            analyzed_tweets.append(parsed_tweet)
+
+        #create dataframe
         df_tweets = pd.DataFrame(analyzed_tweets)
+        df_tweets = df_tweets.drop_duplicates(subset='id')
         df_tweets = df_tweets.set_index('date')
+        #df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text'])
 
         #analyzing the stream
+        nosymbol_count = df_tweets['symbols'].isnull().sum()
+        noreference_count = df_tweets['reference'].isnull().sum()
+
         nosymbol_ratio = nosymbol_count / len(df_tweets.index)
         noreference_ratio = noreference_count / len(df_tweets.index)
 
-        #for company_symbol in company_symbols:
+        #identifying unreferenced tweets and writing them to excel
+        #rows = df_tweets.loc[df_tweets['reference'].isnull()]
+        #rows.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\noreference.xls')
 
-        #rows = df_tweets.loc[df_tweets['reference'] == '']
-        #rows['text'].to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}_text.csv'.format('MSFT'),
-        #            index_label='date',
-        #            encoding="utf-8")
+        for company_symbol in company_symbols:
+
+            rows = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
+            rows.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Twitterfeed_{}.csv'.format('company_symbol'),
+                                index_label='date',
+                                encoding="utf-8")
 
         print(len(df_tweets.index))
         print('No Reference')
@@ -290,14 +336,17 @@ def analyze_tweets():
         print('No Symbol')
         print(nosymbol_count)
         print(nosymbol_ratio)
-        #
 
-    # print(df_tweets)
-        #print(rows['text'])
+        print(df_tweets['time_adj'].head(1))
+        print(df_tweets['time_adj'].tail(1))
 
+        print(df_tweets)
+
+        return(df_tweets)
 
 if __name__=='__main__':
     analyze_tweets()
+
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
     #            encoding="utf-8",
     #            index_col='date')
