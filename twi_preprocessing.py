@@ -190,8 +190,6 @@ def clean_text(content):
     def tokenize(text):
         return tokens_re.findall(text)
 
-
-
     def preprocess(content, lowercase=False):
         text = remove(content)
         #tokens = tokenize(text)
@@ -239,7 +237,6 @@ def analyze_tweets():
             #Get text and language
             parsed_tweet['text'] = tweet['text']
             parsed_tweet['text_clean'] = clean_text(tweet['text'])
-            print(parsed_tweet['text_clean'])
             parsed_tweet['lang'] = tweet['lang']
             ts = tweet['created_at']
 
@@ -270,8 +267,8 @@ def analyze_tweets():
                     parsed_tweet["timeslot"] = "after"
 
             #Get information so evaluate popularity of tweet
-            parsed_tweet['retweets'] = tweet['retweet_count']
-            parsed_tweet['favorite'] = tweet['favorite_count']
+            #parsed_tweet['retweets'] = tweet['retweet_count']
+            #parsed_tweet['favorite'] = tweet['favorite_count']
             user_dict = tweet['user']
             parsed_tweet['user_id'] = user_dict['id_str']
             parsed_tweet['user_followers'] = user_dict['followers_count']
@@ -290,18 +287,25 @@ def analyze_tweets():
             referenced_company = [x for x in company_symbols if x in tweet_symbols]
 
             if referenced_company:
-               #parsed_tweet['reference'] = referenced_company
-                parsed_tweet['reference'] = ''.join(referenced_company)
+                parsed_tweet['reference'] = referenced_company
+                #parsed_tweet['reference'] = ''.join(referenced_company)
 
             for company_symbol in company_symbols:
-                parsed_tweet['xref_{}'.format(company_symbol)] = company_symbol in parsed_tweet['reference']
+                if company_symbol in referenced_company:
+                    a = "True"
+                else:
+                    a = "False"
+
+                parsed_tweet['xref_{}'.format(company_symbol)] = a
 
             #analyzing relevance
             parsed_tweet['relevant'] = word_in_text(tweet['text'])
 
             RT_mentions_str = r'(?:RT @[\w_]+[:])'
-            if re.search(RT_mentions_str, tweet['text'], re.VERBOSE | re.IGNORECASE):
-                parsed_tweet['retweet'] = 'RT'
+            a = re.findall(RT_mentions_str, tweet['text'], re.VERBOSE | re.IGNORECASE)
+            print(a)
+            print(type(a))
+            #parsed_tweet['retweet'] = 'RT'
 
             analyzed_tweets.append(parsed_tweet)
 
@@ -319,15 +323,15 @@ def analyze_tweets():
         noreference_ratio = noreference_count / len(df_tweets.index)
 
         #identifying unreferenced tweets and writing them to excel
-        #rows = df_tweets.loc[df_tweets['reference'].isnull()]
-        #rows.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\noreference.xls')
+        rows_unref = df_tweets.loc[df_tweets['reference'].isnull()]
+        rows_unref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_noreference.csv')
 
+        #write dataframe for anycompany to csv
         for company_symbol in company_symbols:
-
-            rows = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            rows.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Twitterfeed_{}.csv'.format('company_symbol'),
-                                index_label='date',
-                                encoding="utf-8")
+            rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
+            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol),
+                        index_label='date',
+                        encoding="utf-8")
 
         print(len(df_tweets.index))
         print('No Reference')
@@ -337,11 +341,10 @@ def analyze_tweets():
         print(nosymbol_count)
         print(nosymbol_ratio)
 
-        print(df_tweets['time_adj'].head(1))
-        print(df_tweets['time_adj'].tail(1))
-
-        print(df_tweets)
-
+        #print(df_tweets['time_adj'].head(1))
+        #print(df_tweets['time_adj'].tail(1))
+        #print(df_tweets)
+        print(df_tweets.text_clean)
         return(df_tweets)
 
 if __name__=='__main__':
