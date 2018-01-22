@@ -218,9 +218,6 @@ if __name__ == "__main__":
             encoding="utf-8", index_col='date')
 
 
-
-
-
         df_merged = pd.concat([df_old, df_new])
         df_merged = df_merged.drop_duplicates(subset='link')
 
@@ -232,4 +229,4 @@ if __name__ == "__main__":
         #    index_label='date', encoding="utf-8")
 
         #print("DF Merged")
-        #print(len(df_merged))
+        print(len(df_merged))

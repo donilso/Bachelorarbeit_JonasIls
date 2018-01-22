@@ -175,12 +175,15 @@ def clean_text(content):
     regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str]
 
     regex_str = [
+
+        
         r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
         r"(?:[a-z][a-z'\-_]+[a-z])",  # words with - and '
         r'(?:[\w_]+)',  # other words
         r'(?:\S)'  # anything else
     ]
 
+    #retweet_re = re.compile(r'(' + '|'.join(RT_mentions_str) + ')', re.VERBOSE | re.IGNORECASE)
     tokens_re = re.compile(r'(' + '|'.join(regex_str) + ')', re.VERBOSE | re.IGNORECASE)
     emoticon_re = re.compile(r'^' + emoticons_str + '$', re.VERBOSE | re.IGNORECASE)
 
@@ -301,11 +304,12 @@ def analyze_tweets():
             #analyzing relevance
             parsed_tweet['relevant'] = word_in_text(tweet['text'])
 
+            #identify retweets
             RT_mentions_str = r'(?:RT @[\w_]+[:])'
-            a = re.findall(RT_mentions_str, tweet['text'], re.VERBOSE | re.IGNORECASE)
-            print(a)
-            print(type(a))
-            #parsed_tweet['retweet'] = 'RT'
+            retweet_re = re.compile(RT_mentions_str, re.IGNORECASE)
+            matches = retweet_re.search(tweet['text'])
+            if matches:
+                parsed_tweet['retweet'] = 'RT'
 
             analyzed_tweets.append(parsed_tweet)
 
@@ -313,7 +317,7 @@ def analyze_tweets():
         df_tweets = pd.DataFrame(analyzed_tweets)
         df_tweets = df_tweets.drop_duplicates(subset='id')
         df_tweets = df_tweets.set_index('date')
-        #df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text'])
+        df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text_clean','text'])
 
         #analyzing the stream
         nosymbol_count = df_tweets['symbols'].isnull().sum()
@@ -329,9 +333,7 @@ def analyze_tweets():
         #write dataframe for anycompany to csv
         for company_symbol in company_symbols:
             rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol),
-                        index_label='date',
-                        encoding="utf-8")
+            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol))
 
         print(len(df_tweets.index))
         print('No Reference')
@@ -340,6 +342,7 @@ def analyze_tweets():
         print('No Symbol')
         print(nosymbol_count)
         print(nosymbol_ratio)
+        print(df_tweets['retweet'])
 
         #print(df_tweets['time_adj'].head(1))
         #print(df_tweets['time_adj'].tail(1))
