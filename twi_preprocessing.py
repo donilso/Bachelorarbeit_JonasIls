@@ -206,7 +206,7 @@ def analyze_tweets():
     #for company in RSSFeeds._by_company:
         #Reading Tweets
 
-        tweets_data_path ='C:\\Users\\Open Account\\Documents\\20180114_1100twitter_streaming.json'
+        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming1.json'
 
         company_symbols = []
 
@@ -334,6 +334,8 @@ def analyze_tweets():
         for company_symbol in company_symbols:
             rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
             rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol))
+            rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_{}1.xls'.format(company_symbol), columns=['date', 'id', 'text', 'text_clean', 'user_id', 'time_adj'])
+            print(company_symbol, ":", len(rows_ref))
 
         print(len(df_tweets.index))
         print('No Reference')
@@ -342,13 +344,12 @@ def analyze_tweets():
         print('No Symbol')
         print(nosymbol_count)
         print(nosymbol_ratio)
-        print(df_tweets['retweet'])
 
         #print(df_tweets['time_adj'].head(1))
         #print(df_tweets['time_adj'].tail(1))
         #print(df_tweets)
         print(df_tweets.text_clean)
-        return(df_tweets)
+        return(len(df_tweets))
 
 if __name__=='__main__':
     analyze_tweets()

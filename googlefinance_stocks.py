@@ -4,8 +4,8 @@ import datetime
 
 print("Collecting Stock Data")
 
-start = datetime.datetime(2017, 10, 20)
-end = datetime.datetime(2017, 10, 26)
+start = datetime.datetime(2018, 1, 8)
+end = datetime.datetime(2018, 1, 9)
 
 stockdata = web.DataReader("F", 'google', start, end)
 
