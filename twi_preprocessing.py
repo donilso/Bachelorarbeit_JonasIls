@@ -175,8 +175,6 @@ def clean_text(content):
     regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str]
 
     regex_str = [
-
-        
         r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
         r"(?:[a-z][a-z'\-_]+[a-z])",  # words with - and '
         r'(?:[\w_]+)',  # other words

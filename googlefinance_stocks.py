@@ -7,11 +7,11 @@ print("Collecting Stock Data")
 start = datetime.datetime(2018, 1, 8)
 end = datetime.datetime(2018, 1, 9)
 
-stockdata = web.DataReader("F", 'google', start, end)
+stockdata = web.DataReader("MSFT", 'yahoo', start, end)
 
-file = open (r'/Users/Jonas/Desktop/BA_Results/stockdata_google.csv', 'w')
+file = open ('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Test_StockPrices_MSFT.csv', 'w')
 file.close()
 
-sdfile = stockdata.to_csv('stockdata_google.csv')
+sdfile = stockdata.to_csv('Test_stockdata_MSFT.csv')
 
 print("Finished")
