@@ -171,8 +171,9 @@ def clean_text(content):
     html_str = r'<[^>]+>'
     hashtag_str = r"(?:\#+[\w_]+[\w\'_\-]*[\w_]+)"
     cashtag_str = r"(?:\$+[\w_]+[\w\'_\-]*[\w_]+"
+    non_ascii_str = r'[^\x00-\x7f]'
 
-    regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str]
+    regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str, non_ascii_str]
 
     regex_str = [
         r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
@@ -200,11 +201,9 @@ def clean_text(content):
 
     return preprocess(content)
 
-def analyze_tweets():
+def analyze_tweets(path):
     #for company in RSSFeeds._by_company:
         #Reading Tweets
-
-        tweets_data_path ='C:\\Users\\Open Account\\Documents\\BA_JonasIls\\twitter_streaming1.json'
 
         company_symbols = []
 
@@ -213,7 +212,7 @@ def analyze_tweets():
             company_symbols.append(company_symbol)
 
         tweets_data = []
-        tweets_file = open(tweets_data_path, "r")
+        tweets_file = open(tweets_data_path, "r", encoding='utf-8')
         for line in tweets_file:
             try:
                 tweet = json.loads(line)
@@ -315,7 +314,7 @@ def analyze_tweets():
         df_tweets = pd.DataFrame(analyzed_tweets)
         df_tweets = df_tweets.drop_duplicates(subset='id')
         df_tweets = df_tweets.set_index('date')
-        df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text_clean','text'])
+        #df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text_clean','text'])
 
         #analyzing the stream
         nosymbol_count = df_tweets['symbols'].isnull().sum()
@@ -326,13 +325,13 @@ def analyze_tweets():
 
         #identifying unreferenced tweets and writing them to excel
         rows_unref = df_tweets.loc[df_tweets['reference'].isnull()]
-        rows_unref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_noreference.csv')
+        #rows_unref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_noreference.csv')
 
         #write dataframe for anycompany to csv
         for company_symbol in company_symbols:
             rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol))
-            rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_{}1.xls'.format(company_symbol), columns=['date', 'id', 'text', 'text_clean', 'user_id', 'time_adj'])
+            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol), encoding='utf-8')
+            #rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_{}.xls'.format(company_symbol), columns=['date', 'id', 'text', 'text_clean', 'user_id', 'time_adj'])
             print(company_symbol, ":", len(rows_ref))
 
         print(len(df_tweets.index))
@@ -349,8 +348,11 @@ def analyze_tweets():
         print(df_tweets.text_clean)
         return(len(df_tweets))
 
+
 if __name__=='__main__':
-    analyze_tweets()
+
+    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101twitter_streaming.json'
+    analyze_tweets(tweets_data_path)
 
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
     #            encoding="utf-8",

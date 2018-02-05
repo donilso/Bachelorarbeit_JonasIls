@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from decimal import Decimal
+from textblob import TextBlob
 
 #tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_MSFT.xls'
 #tweets_file = pd.read_excel(tweets_data_path, index_label='date', encoding="utf-8")
@@ -9,11 +10,19 @@ from decimal import Decimal
 #print(tweets_file)
 
 # reading dataframe
-tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\ev_dicts.csv'
+tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_dicts.csv'
 tweets_file = pd.read_csv(tweets_data_path, encoding="utf-8")
 
+def get_TBSentiment(text):
+    analysis = TextBlob(text)
+    SentimentTB = analysis.sentiment.polarity
 
-def dict_evaluation(dataframe, dict):
+    return(SentimentTB)
+
+def dict_evaluation(dataframe, dict, sent_min, rel_min):
+
+    dataframe['SentimentTB'] = dataframe['text_clean'].apply(get_TBSentiment)
+
     TR = 0  # Signifikantes Sentiment und tatsaechlich relevant
     FR = 0  # Signifikantes Sentiment aber tatsaechlich irrelevant
     FI = 0  # Insignifikantes Sentiment aber tatsaechlich relevant
@@ -21,8 +30,12 @@ def dict_evaluation(dataframe, dict):
 
     nothing = 0 # if no statement return True
 
+    FI_tweets = []
+    TR_tweets = []
+
     # iterating Statements over Dataframe to count
-    for date, tweet in dataframe.iterrows():
+    for index, tweet in dataframe.iterrows():
+
 
         sent = tweet['{}'.format(dict)]
         rel = tweet['sent_score']
@@ -33,20 +46,36 @@ def dict_evaluation(dataframe, dict):
         else:
             sent = sent
 
-        # classifying tweets
-        if sent > 0.2 and rel == 3:
-            TR = TR + 1
-        elif sent > 0.2 and rel != 3:
-            FR = FR + 1
-        elif sent < 0.2 and rel == 3:
-            FI = FI + 1
-        elif sent < 0.2 and rel != 3:
-            TI = TI + 1
+        #print("SENT TYPE")
+        #print(type(sent))
+        #print(type(0.2))
 
+        #print("REL TYPE")
+        #print(type(rel))
+        #print(type(3))
+
+        # classifying tweets
+        if sent >= sent_min and rel >= rel_min:
+            TR = TR + 1
+            TR_tweets.append(tweet)
+        elif sent >= sent_min and rel < rel_min:
+            FR = FR + 1
+        elif sent < sent_min and rel >= rel_min:
+            FI = FI + 1
+            FI_tweets.append(tweet)
+
+        elif sent < sent_min and rel < rel_min:
+            TI = TI + 1
         else:
             nothing = nothing + 1
 
-    print(nothing)
+    df_FI = pd.DataFrame(FI_tweets)
+    df_FI.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\FI_tweets{}.csv'.format(dict))
+
+    df_TR = pd.DataFrame(TR_tweets)
+    df_TR.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\TR_tweets{}.csv'.format(dict))
+
+    #print(nothing)
 
     # creating matrix to store metrics
     ev_dict = {}
@@ -56,16 +85,17 @@ def dict_evaluation(dataframe, dict):
     ev_matrix = pd.DataFrame.from_dict(ev_dict, orient='index')
     ev_matrix['Sum'] = ev_matrix[0]+ev_matrix[1]
     ev_matrix.rename(columns={0: 'relevant', 1: 'irrelevant'}, inplace=True)
-    print(ev_matrix)
+
+    return(ev_matrix)
 
 if __name__ == "__main__":
     LM = 'SentimentLM'
     GI = 'SentimentGI'
     HE = 'SentimentHE'
     QDAP = 'SentimentQDAP'
-    sent_dicts = [LM, GI, HE, QDAP]
-
-    print(tweets_file)
+    TB = 'SentimentTB'
+    sent_dicts = [LM, GI, HE, QDAP, TB]
 
     for sent_dict in sent_dicts:
-        dict_evaluation(tweets_file, sent_dict)
+        ev_matrix = dict_evaluation(tweets_file, sent_dict, 0.2, 3)
+        ev_matrix.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\Evaluation Matrix {}.xls'.format(sent_dict))

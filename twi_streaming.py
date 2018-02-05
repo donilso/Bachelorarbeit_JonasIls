@@ -46,8 +46,8 @@ if __name__ == "__main__":
     auth.secure = True
     auth.set_access_token(access_token, access_secret)
 
-    stream = Stream(auth, l)
-
     data = stream.filter(track=['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT'],
                          languages=['en'])
+    stream = Stream(auth, l)
+
 
