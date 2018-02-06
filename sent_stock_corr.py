@@ -14,7 +14,7 @@ def get_TBSentiment(text):
 def open_df_sent(company):
     file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101Test_SentimentsLM_{}.csv'.format(company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
-    df_tweets['SentimentTB'] = get_TBSentiment(str(df_tweets['text_clean']))
+    df_tweets['SentimentTB'] = df_tweets['text_clean'].apply(get_TBSentiment)
 
     return(df_tweets)
 
@@ -177,7 +177,7 @@ def main_correlation(companies, sentiment_dictionaries):
 
         for sentiment_dict in sentiment_dictionaries:
             corr_SentYields = {}
-            df_tweets = threshhold(df_tweets, sentiment_dict, 0.2)
+            #df_tweets = threshhold(df_tweets, sentiment_dict, 0.2)
             df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_c2cStock)
             corr_SentYields['company'] = company
             corr_SentYields['sentiment_dict'] = sentiment_dict
@@ -190,23 +190,23 @@ def main_correlation(companies, sentiment_dictionaries):
     return(df_corr)
 
 
-def main_sentiments(companies, sentiment_dictionaries, sent_min):
+def main_sentiments(company, sentiment_dictionary, sent_min):
+    '''Main Function to return a dataframe analyzing c2c-Sentiments:
+        1) amount of negative tweets
+        2) amount of positive tweets
+        3) weighted average of polarities
+        4) weighted average of sentiment
+        5) amount of tweets'''
+    df_tweets = open_df_sent(company)
 
-    companies_list = [company.replace('$', '') for company in companies]
+    start = date_start(df_tweets)
+    end = date_end(df_tweets)
+    df_stock = daily_yield(company, start, end)
 
-    for company in companies_list:
-        df_tweets = open_df_sent(company)
+    df_tweets = threshhold(df_tweets, sentiment_dictionary, sent_min)
+    df_c2c = close2close_sentiments(df_tweets, sentiment_dictionary, df_stock)
 
-        start = date_start(df_tweets)
-        end = date_end(df_tweets)
-        df_stock = daily_yield(company, start, end)
-
-        for sent_dict in sentiment_dictionaries:
-            df_tweets = threshhold(df_tweets, sent_dict, sent_min)
-            df_c2c = close2close_sentiments(df_tweets, sent_dict, df_stock)
-
-            return(df_c2c)
-
+    return(df_c2c)
 
 
 def analyze_corr(df_corr):
@@ -217,6 +217,7 @@ def analyze_corr(df_corr):
     df_corr_analysis.rename(columns={0: 'corr_mean', 1: 'corr_std'}, inplace=True)
 
     return(df_corr_analysis)
+
 
 if __name__ == "__main__":
 
@@ -231,4 +232,10 @@ if __name__ == "__main__":
 
     df_corr = main_correlation(companies, sentiment_dicts)
     print(analyze_corr(df_corr))
-    print(main_sentiments(companies, sentiment_dicts, 0.2))
+
+    #for company in companies:
+    #    company = company.replace('$', '')
+    #    df_sent = main_se
+    # ntiments(company, LM, 0)
+    #    print('{}'.format(company))
+    #    print(df_sent)

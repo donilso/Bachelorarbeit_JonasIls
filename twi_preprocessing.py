@@ -351,7 +351,7 @@ def analyze_tweets(path):
 
 if __name__=='__main__':
 
-    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101twitter_streaming.json'
+    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180124_2336 twitter_streaming.json'
     analyze_tweets(tweets_data_path)
 
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
