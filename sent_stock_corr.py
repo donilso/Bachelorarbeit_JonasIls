@@ -134,12 +134,24 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
 
         # getting the number of tweets, positive tweets as well as negative tweets
         sent_c2c['tweet_count'] = len(rows)
-        sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] <= 0])
-        sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] > 0])
+        sent_c2c['tweet_count_w'] = rows['user_followers'].sum()
+        sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] >= 0])
+        sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
+        sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] >= 0]['user_followers'].sum()
+        sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
+
+        # getting the ratio of positive and negative tweets
+        try:
+            sent_c2c['ratio_pos'] = (sent_c2c['count_pos'] / sent_c2c['tweet_count'])
+            sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
+            sent_c2c['ratio_pos_w'] = sent_c2c['count_pos_w'] / sent_c2c['tweet_count_w']
+            sent_c2c['ratio_neg_w'] = sent_c2c['count_neg_w'] / sent_c2c['tweet_count_w']
+
+        except:
+            "Error: No Tweets. No Ratio."
 
         # calculating the c-2-c-sentiment depending on the followers
-        followers_count = rows['user_followers'].sum()
-        sent_c2c['sent_mean_w'] = rows['sent_w'].sum() / followers_count
+        sent_c2c['sent_mean_w'] = rows['sent_w'].sum() / sent_c2c['tweet_count_w']
 
         daily_sentiments.append(sent_c2c)
 
@@ -149,19 +161,23 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
     return(df_c2c)
 
 
-def sent_stock_corr(df_c2cSent, df_c2cStock):
+def sent_stock_corr(df_c2cSent, df_c2cStock, corr_var):
 
     df_results = pd.concat([df_c2cSent, df_c2cStock], axis=1)
-    corr_SentYields = df_results['Adj Close'].corr(df_results['sent_mean_w'])
+    corr_SentYields = df_results['Adj Close'].corr(df_results[corr_var])
 
     #df_results = df_results.rename(columns={0: 'Mean Sentiment', 1: 'Std Sentiment', 2: 'Daily Yields'}, inplace=True)
     #corr_SentYields = df_results['Daily Yields'].corr(df_results['Mean Sentiment'])
     return (corr_SentYields)
 
 
-def main_correlation(companies, sentiment_dictionaries):
+def main_correlation(list_of_companies, list_of_sent_dicts, corr_var):
+    '''Main function to analyze the correlation between sentiments and stock prices for
+    1) A LIST of companies
+    2) a LIST of sentiment dictionaries
+    3) a variable we want to measure the correlation for (e.g. sent_mean, ratio_pos, sent_mean_w [...])'''
     correlations = []
-    companies_list = [company.replace('$', '') for company in companies]
+    companies_list = [company.replace('$', '') for company in list_of_companies]
 
     for company in companies_list:
 
@@ -175,13 +191,13 @@ def main_correlation(companies, sentiment_dictionaries):
         # parse stock quotes
         df_c2cStock = daily_yield(company, start, end)
 
-        for sentiment_dict in sentiment_dictionaries:
+        for sentiment_dict in list_of_sent_dicts:
             corr_SentYields = {}
             #df_tweets = threshhold(df_tweets, sentiment_dict, 0.2)
             df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_c2cStock)
             corr_SentYields['company'] = company
             corr_SentYields['sentiment_dict'] = sentiment_dict
-            corr_SentYields['correlation'] = sent_stock_corr(df_c2cSent, df_c2cStock)
+            corr_SentYields['correlation'] = sent_stock_corr(df_c2cSent, df_c2cStock, corr_var)
 
             correlations.append(corr_SentYields)
 
@@ -230,12 +246,15 @@ if __name__ == "__main__":
     TB = 'SentimentTB'
     sentiment_dicts = [LM, GI, HE, QDAP, TB]
 
-    df_corr = main_correlation(companies, sentiment_dicts)
+    corr_var = 'ratio_neg_w'
+
+    df_corr = main_correlation(companies, sentiment_dicts, corr_var)
+    print(df_corr)
     print(analyze_corr(df_corr))
 
-    #for company in companies:
-    #    company = company.replace('$', '')
-    #    df_sent = main_se
-    # ntiments(company, LM, 0)
-    #    print('{}'.format(company))
-    #    print(df_sent)
+
+    for company in companies:
+        company = company.replace('$', '')
+        df_sent = main_sentiments(company, TB, 0.1)
+        #print('{}'.format(company))
+        #print(df_sent)
