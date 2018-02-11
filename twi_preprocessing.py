@@ -227,8 +227,10 @@ def analyze_tweets(path):
         noreference_count = 0
 
         print("Processing Tweets ...")
-
+        counter = 0
         for tweet in tweets_data:
+            counter = counter + 1
+            print(counter)
             #Dictionary to store information about Tweet
             parsed_tweet = {}
 
@@ -255,15 +257,14 @@ def analyze_tweets(path):
 
             # converting timestamp to integer to classify tweets by "timeslot"
             def to_integer(ts):
-                return 100 * ts.hour + ts.minute
+                return 10000 * ts.hour + 100 * ts.minute + ts.second
             time_int = to_integer(timestamp_adj.time())
 
-            if time_int > 930 and time_int < 1600:
-                parsed_tweet["timeslot"] = "during"
+            if time_int > 93000 and time_int < 160000: parsed_tweet["timeslot"] = "during"
             else:
-                if time_int > 0 and time_int < 930:
+                if time_int > 0 and time_int < 93000:
                     parsed_tweet["timeslot"] = "before"
-                if time_int > 1600 and time_int < 2359:
+                if time_int > 160000 and time_int < 235959:
                     parsed_tweet["timeslot"] = "after"
 
             #Get information so evaluate popularity of tweet
@@ -316,6 +317,10 @@ def analyze_tweets(path):
         df_tweets = df_tweets.set_index('date')
         #df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text_clean','text'])
 
+        #converting datatypes of columns
+        df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
+        df_tweets['text'] = df_tweets['text'].astype(str)
+
         #analyzing the stream
         nosymbol_count = df_tweets['symbols'].isnull().sum()
         noreference_count = df_tweets['reference'].isnull().sum()
@@ -330,7 +335,7 @@ def analyze_tweets(path):
         #write dataframe for anycompany to csv
         for company_symbol in company_symbols:
             rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_{}.csv'.format(company_symbol), encoding='utf-8')
+            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\24012018twitterfeed_{}TestString.csv'.format(company_symbol), encoding='utf-8')
             #rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_{}.xls'.format(company_symbol), columns=['date', 'id', 'text', 'text_clean', 'user_id', 'time_adj'])
             print(company_symbol, ":", len(rows_ref))
 
@@ -351,7 +356,7 @@ def analyze_tweets(path):
 
 if __name__=='__main__':
 
-    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180124_2336 twitter_streaming.json'
+    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101twitter_streaming.json'
     analyze_tweets(tweets_data_path)
 
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
