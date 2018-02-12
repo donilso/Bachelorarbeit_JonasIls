@@ -10,8 +10,8 @@ from textblob import TextBlob
 #print(tweets_file)
 
 # reading dataframe
-tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_dicts.csv'
-tweets_file = pd.read_csv(tweets_data_path, encoding="utf-8")
+def open_df_tweets(file_path):
+    return pd.read_csv(file_path, encoding="utf-8")
 
 def get_TBSentiment(text):
     analysis = TextBlob(text)
@@ -88,6 +88,23 @@ def dict_evaluation(dataframe, dict, sent_min, rel_min):
 
     return(ev_matrix)
 
+def ev_metrics(sent_dicts, sent_min, file_path):
+    df_tweets = open_df_tweets(file_path)
+    analyzed_dicts = []
+
+    for sent_dict in sent_dicts:
+        ev_matrix = dict_evaluation(df_tweets, sent_dict, sent_min, 2)
+
+        metrics = {}
+        metrics['sent_dict'] = sent_dict
+        metrics['precision'] = ev_matrix.loc['sigificant_{}'.format(sent_dict)]['relevant'] / ev_matrix.loc['sigificant_{}'.format(sent_dict)]['Sum']
+        metrics['recall'] = ev_matrix.loc['sigificant_{}'.format(sent_dict)]['relevant'] / ev_matrix['relevant'].sum()
+        metrics['f1_measure'] = 2 * ((metrics['precision'] * metrics['recall']) / (metrics['precision'] + metrics['recall']))
+
+        analyzed_dicts.append(metrics)
+
+    return pd.DataFrame(analyzed_dicts).set_index('sent_dict')
+
 if __name__ == "__main__":
     LM = 'SentimentLM'
     GI = 'SentimentGI'
@@ -96,6 +113,13 @@ if __name__ == "__main__":
     TB = 'SentimentTB'
     sent_dicts = [LM, GI, HE, QDAP, TB]
 
-    for sent_dict in sent_dicts:
-        ev_matrix = dict_evaluation(tweets_file, sent_dict, 0.2, 3)
-        ev_matrix.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\Evaluation Matrix {}.xls'.format(sent_dict))
+    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_dicts.csv'
+    #df_tweets = open_df_tweets(file_path)
+
+    df_metrics = ev_metrics(sent_dicts, 0.2, file_path)
+    df_metrics.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_metrics.xls')
+    print(df_metrics)
+
+    #for sent_dict in sent_dicts:
+    #    ev_matrix = dict_evaluation(df_tweets, sent_dict, 0.2, 3)
+    #    ev_matrix.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\Evaluation Matrix {}.xls'.format(sent_dict))

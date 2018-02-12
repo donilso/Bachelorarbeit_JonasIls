@@ -145,6 +145,8 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                company_Feed='$WMT',
                 identifier = [])
 
+def write_data(df, file_path_write, company):
+    return df.to_csv(file_path_write.format(company), sep='#', encoding='utf-8', index_label='date', cols = ['date', 'text_clean', 'time_adj', 'user_id', 'user_followers', 'retweet'])
 
 def word_in_text(text):
     keywords = ["stock", "price", "market", "share"]
@@ -170,10 +172,10 @@ def clean_text(content):
     url_str = r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+'
     html_str = r'<[^>]+>'
     hashtag_str = r"(?:\#+[\w_]+[\w\'_\-]*[\w_]+)"
-    cashtag_str = r"(?:\$+[\w_]+[\w\'_\-]*[\w_]+"
+    cashtag_str = r"(?:\$+[\w_]+[\w\'_\-]*[\w_]+)"
     non_ascii_str = r'[^\x00-\x7f]'
 
-    regex_remove = [url_str, html_str, emoticons_str, hashtag_str, RT_mentions_str, non_ascii_str]
+    regex_remove = [url_str, html_str, emoticons_str, RT_mentions_str, non_ascii_str]
 
     regex_str = [
         r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
@@ -187,7 +189,10 @@ def clean_text(content):
     emoticon_re = re.compile(r'^' + emoticons_str + '$', re.VERBOSE | re.IGNORECASE)
 
     def remove(content):
-        return re.sub(r'(' + '|'.join(regex_remove) + ')', '', content, re.VERBOSE | re.IGNORECASE)
+        content_hashtags = content.replace('#', '')
+        content_cashtags = re.sub (cashtag_str, 'stock', content_hashtags, re.VERBOSE | re.IGNORECASE)
+        remove_rest =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content_cashtags, re.VERBOSE | re.IGNORECASE)
+        return(remove_rest)
 
     def tokenize(text):
         return tokens_re.findall(text)
@@ -201,7 +206,7 @@ def clean_text(content):
 
     return preprocess(content)
 
-def analyze_tweets(path):
+def analyze_tweets(file_path_read, file_path_write):
     #for company in RSSFeeds._by_company:
         #Reading Tweets
 
@@ -212,7 +217,7 @@ def analyze_tweets(path):
             company_symbols.append(company_symbol)
 
         tweets_data = []
-        tweets_file = open(tweets_data_path, "r", encoding='utf-8')
+        tweets_file = open(file_path_read, "r", encoding='utf-8')
         for line in tweets_file:
             try:
                 tweet = json.loads(line)
@@ -335,8 +340,8 @@ def analyze_tweets(path):
         #write dataframe for anycompany to csv
         for company_symbol in company_symbols:
             rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            rows_ref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\24012018twitterfeed_{}TestString.csv'.format(company_symbol), encoding='utf-8')
-            #rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Excel\\twittertext_{}.xls'.format(company_symbol), columns=['date', 'id', 'text', 'text_clean', 'user_id', 'time_adj'])
+            write_data(rows_ref, file_path_write, company_symbol)
+            #rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Regex Test\\Regex_Test{}.xls'.format(company_symbol), columns=['text', 'text_clean'])
             print(company_symbol, ":", len(rows_ref))
 
         print(len(df_tweets.index))
@@ -356,8 +361,9 @@ def analyze_tweets(path):
 
 if __name__=='__main__':
 
-    tweets_data_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101twitter_streaming.json'
-    analyze_tweets(tweets_data_path)
+    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180101twitter_streaming.json'
+    file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_{}.csv'
+    analyze_tweets(file_path_read, file_path_write)
 
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
     #            encoding="utf-8",

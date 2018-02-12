@@ -23,17 +23,10 @@ def open_df_sent(company):
 #msft = open_df_sent('MSFT')
 #print(msft.user_followers)
 
-def open_evdicts(file_path):
+def open_newsfeed(file_path):
     return(pd.read_csv(file_path, encoding="utf-8"))
 
+def write_articles(file_path, df):
+    return(df.to_csv(file_path, encoding='utf-8'))
 
-def get_texts(file_path, rel_score):
-    df_tweets = open_evdicts(file_path)
-    rows = df_tweets.loc[df_tweets['sent_score'] == rel_score]
-    rows['text_clean'].to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_dicts_texts_{}.xls'.format(rel_score), encoding='utf-8')
-    return(rows['text_clean'])
-
-if __name__ == "__main__":
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Evaluation Dicts\\ev_dicts.csv'
-    print(get_texts(file_path, 3))
-    print(get_texts(file_path, 2))
+def clean_text(text):
