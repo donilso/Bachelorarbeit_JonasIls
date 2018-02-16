@@ -30,3 +30,28 @@ def write_articles(file_path, df):
     return(df.to_csv(file_path, encoding='utf-8'))
 
 def clean_text(text):
+   return text
+
+# einheitlich für positiv und negatives sentiment
+def threshold_sentiment(df_sent, sent_dict, percentile):
+
+    values_pos = []
+    values_neg = []
+
+    for index, tweet in df_sent.iterrows():
+        sent = tweet['{}'.format(sent_dict)]
+
+        # transforming negative sentiments
+        if sent < 0:
+           values_neg.append(sent)
+        else:
+            values_pos.append(sent)
+
+    try:
+        sent_min_pos = np.percentile(values_pos, percentile)
+    except:
+        sent_min_pos = 0
+    try:
+        sent_min_neg = np.percentile(values_neg, percentile)
+    except:
+        sent_min_neg = 0

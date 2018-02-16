@@ -25,7 +25,7 @@ def open_df_sent(company):
 
     df_tweets = df_tweets.fillna(0)
     df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
-    df_tweets['date'] = pd.to_datetime(df_tweets['date'].astype(str))
+    df_tweets['date'] = pd.to_datetime(df_tweets['date'])
     df_tweets['user_followers'] = df_tweets['user_followers'].astype(int)
 
     # adding sentiment calculated with textblob
@@ -35,25 +35,47 @@ def open_df_sent(company):
 
 
 def date_start(df_sent):
-    return(df_sent.date.values[0])
+    return(df_sent.date.iloc[0])
 
 
 def date_end(df_sent):
-    return(df_sent.date.values[len(df_sent)-1])
+    return(df_sent.date.iloc[len(df_sent)-1])
+
+
+def get_df_index(index):
+    df_index = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_^{}.csv'.format(index), encoding='utf-8')
+    df_index['daily_returns'] = df_index['Adj Close'] / df_index['Adj Close'].shift(1) - 1
+    return df_index
 
 
 def daily_yield(company, start, end):
     '''Function to parse daily stock quotes and calculate daily yields'''
+    #TODO: add a measure for intraday volatility
+
     # parsing stockdata
-    stockdata = web.DataReader("{}".format(company), 'yahoo', start, end)['Adj Close']
-    #stockdata = pd.read_csv('Test_stockdata_MSFT.csv', index_col='Date')['Adj Close']
+    df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
 
     # calculating yields
-    yields = stockdata/stockdata.shift(1)-1
-    df_stock = yields.drop(yields.index[0])
-    pd.to_datetime(df_stock.index)
+    df_stock['daily_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
 
-    return(df_stock)
+    # calculating the 120 average of index
+    df_stock['Index120day_average'] = pd.rolling_mean(df_index['daily_returns'], 120)
+
+    # calculating abnormal returns
+    df_stock['abnormal_returns'] = df_stock['daily_returns'] - df_stock['Index120day_average']
+
+    # extract relevant time period
+    df_stock['Date'] = pd.to_datetime(df_stock['Date'])
+    one_day = timedelta(days=1)
+    start_index = df_stock[df_stock['Date'] == start].index.tolist()
+    while not start_index:
+        start_index = df_stock[df_stock['Date'] == (start + one_day)].index.tolist()
+
+    end_index = df_stock[df_stock['Date'] == end].index.tolist()
+    while not end_index:
+        end_index = df_stock[df_stock['Date'] == (end + one_day)].index.tolist()
+
+    return df_stock.loc[start_index[0] : end_index[0]].set_index('Date')
 
 
 # function to convert dates of typ sting to datetime format
@@ -61,7 +83,7 @@ def to_datetime(date_str):
     '''Utiliy function to convert strings to datetime format'''
     try:
         fmt = '%Y-%m-%d'
-        date_datetime = datetime.strptime(date_str, fmt)
+        date_datetime = datetime.date.strptime(date_str, fmt)
         return(date_datetime)
 
     except:
@@ -85,13 +107,36 @@ def polarity(dataframe, sent_dict, pol):
     return(polarity_mean_w)
 
 
-def threshold_sentiment (df_sent, sent_dict, sent_min):
-    sent_dict = '{}'.format(sent_dict)
-    return df_sent.loc[(df_sent[sent_dict] >= sent_min) | (df_sent[sent_dict] <= (sent_min*(-1)))]
+def threshold_sentiment(df_sent, sent_dict, percentile):
+    values = []
+    for index, tweet in df_sent.iterrows():
+        sent = tweet['{}'.format(sent_dict)]
+
+        # transforming negative sentiments
+        if sent < 0:
+            sent = sent * (-1)
+        else:
+            sent = sent
+
+        values.append(sent)
+
+    try:
+        sent_min = np.percentile(values, percentile)
+    except:
+        sent_min = 0
+
+    return df_sent.loc[(df_sent[sent_dict] >= sent_min) | (df_sent[sent_dict] <= (sent_min * (-1)))]
 
 
-def close2close_sentiments(df_sent, sent_dict, df_stock):
-    #df_sent = threshhold(df_sent, sent_dict, 0.2)
+
+def threshold_tweetcount(c2c_sent, percentile):
+    tc_min = np.percentile(c2c_sent['tweet_count_unfiltered'], percentile)
+    return c2c_sent.loc[(c2c_sent['tweet_count_unfiltered'] >= tc_min)]
+
+
+def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter):
+    '''Untility function to create aggregatet sentiment metrics (c-2-c) and to merge them with daily stock quotes'''
+
     sent_dict = '{}'.format(sent_dict)
 
     daily_sentiments = []
@@ -104,8 +149,8 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
         # adding column of weighted sentiment depending on the followers count
         df_sent['sent_w'] = df_sent[sent_dict] * df_sent['user_followers']
 
-        #today = date
-        today = date  # has to be used if you read stocks from csv and not directly from pd.DataReader
+        today = date
+
         sent_c2c['date'] = today
 
         # defining timedeltas select c2c-rows
@@ -115,22 +160,25 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
 
         #df_sent.date = pd.to_datetime(df_sent.date)
 
-
-
-        ### Whole Weekend to calculate Monday sentiment
+        # group tweets to c-2-c
         if today.weekday()!= 0:
             yesterday = today - one_day
-
-            #filter rows for c2c sentiment
             rows_today = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot.isin(['during', 'before']))]
             rows_yesterday = df_sent.loc[(df_sent.date == yesterday) & (df_sent.timeslot == 'after')]
             rows = pd.concat([rows_today, rows_yesterday])
 
         else:
-            yesterday = [today - one_day, today - two_days]
+            weekend = [today - one_day, today - two_days]
             rows_today = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot.isin(['during', 'before']))]
-            rows_weekend = df_sent.loc[(df_sent.date.isin(yesterday)) or ((df_sent.date == today - three_days) & (df_sent.timeslot == 'after'))]
+            rows_weekend = df_sent.loc[(df_sent.date.isin(weekend)) | ((df_sent.date == today - three_days) & (df_sent.timeslot == 'after'))]
             rows = pd.concat([rows_today, rows_weekend])
+
+        sent_c2c['tweet_count_unfiltered'] = len(rows)
+
+        if sentiment_filter == True:
+            rows = threshold_sentiment(rows, sent_dict, sent_min)
+        else:
+            rows = rows
 
         # calculating positive and negative polarity (weighted average)
         sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
@@ -154,7 +202,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
             sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
             sent_c2c['ratio_pos_w'] = sent_c2c['count_pos_w'] / sent_c2c['tweet_count_w']
             sent_c2c['ratio_neg_w'] = sent_c2c['count_neg_w'] / sent_c2c['tweet_count_w']
-            sent_c2c['bullishness'] = np.log((1+sent_c2c['count_neg'])/(1+sent_c2c['count_pos']))
+            sent_c2c['bullishness'] = np.log((1+sent_c2c['count_pos'])/(1+sent_c2c['count_neg']))
 
         except:
             "Error: No Tweets. No Ratio."
@@ -164,28 +212,19 @@ def close2close_sentiments(df_sent, sent_dict, df_stock):
 
         daily_sentiments.append(sent_c2c)
 
-    df_c2c = pd.DataFrame(daily_sentiments)
-    df_c2c = df_c2c.set_index('date')
-
-    return(df_c2c)
-
-
-def threshold_tweet_count (c2c_sent, percentile, w):
-    if w == True:
-        tc_min = np.percentile(c2c_sent['tweet_count_w', percentile])
-        return c2c_sent.loc[(df_sent['tweet_count_w'] >= tc_min)]
-
+    if volume_filter == True:
+        df_c2c = threshold_tweetcount(pd.DataFrame(daily_sentiments), percentile_tweetcount)
     else:
-        tc_min = np.percentile(c2c_sent['tweet_count'], percentile)
-        return c2c_sent.loc[(df_sent['tweet_count'] >= tc_min)]
+        df_c2c = pd.DataFrame(daily_sentiments)
+
+    return(df_c2c.set_index('date'))
 
 
+def sent_stock_corr(df_sentstock, corr_var_sent, corr_var_stock):
+        return (df_sentstock['{}'.format(corr_var_stock)].corr(df_sentstock['{}'.format(corr_var_sent)]))
 
-def sent_stock_corr(df_sentstock, corr_var):
-        return (df_sentstock['Adj Close'].corr(df_sentstock['{}'.format(corr_var)]))
 
-
-def main_correlation(list_of_companies, sentiment_dicts, corr_var, sent_min, percentile_tweet_count, w_tweet_count):
+def main_correlation_stockwise(list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter):
     '''Main function to analyze the correlation between sentiments and stock prices.
     INPUT VARIABLES:
     1) a LIST of companies
@@ -205,13 +244,11 @@ def main_correlation(list_of_companies, sentiment_dicts, corr_var, sent_min, per
                 start = date_start(df_tweets)
                 end = date_end(df_tweets)
                 # parse stock quotes
-                df_c2cStock = daily_yield(company, start, end)
+                df_stock = daily_yield(company, start, end)
 
 
                 # get close to close sentiments
-                df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_c2cStock)
-                # filter days by tweet count
-                df_c2cSent = threshold_tweet_count(df_c2cSent, percentile_tweet_count, w_tweet_count)
+                df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter)
 
                 # crate correlation dataframe
                 corr_SentYields = {}
@@ -221,9 +258,9 @@ def main_correlation(list_of_companies, sentiment_dicts, corr_var, sent_min, per
                 corr_SentYields['sentiment_dict'] = sentiment_dict
                 corr_SentYields['average_tweet_count'] = np.mean(df_c2cSent['tweet_count'])
 
-                for var in corr_var:
-                    df_sentstock = pd.concat([df_c2cSent, df_c2cStock], axis=1)
-                    corr_SentYields['correlation_{}'.format(var)] = sent_stock_corr(df_sentstock, var)
+                for var_sent in corr_var_sent:
+                    df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                    corr_SentYields['correlation_{}'.format(var_sent)] = sent_stock_corr(df_sentstock, var_sent, corr_var_stock)
 
                 correlations.append(corr_SentYields)
 
@@ -235,9 +272,76 @@ def main_correlation(list_of_companies, sentiment_dicts, corr_var, sent_min, per
                 correlations.append(corr_SentYields)
 
         df_corr = pd.DataFrame(correlations).set_index('company')
-        df_corr.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_Correlation_{}.xls'.format(sentiment_dict), encoding='utf-8')
 
+        if volume_filter == True and sentiment_filter== True:
+            file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_Corr_{}_{}_filtersON.xls'.format(sentiment_dict, corr_var_stock)
+
+        elif volume_filter == True and sentiment_filter == False:
+            file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_Corr_{}_{}_volumefilterON.xls'.format(sentiment_dict, corr_var_stock)
+
+        elif volume_filter == False and sentiment_filter == True:
+            file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_Corr_{}_{}_sentimentfilterON.xls'.format(sentiment_dict, corr_var_stock)
+
+        elif volume_filter == False and sentiment_filter == False:
+            file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_Corr{}_{}_filtersOFF.xls'.format(sentiment_dict, corr_var_stock)
+
+        df_corr.to_excel(file_path, encoding='utf-8')
         return(df_corr)
+
+
+def main_correlation_allstocks(list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter):
+    correlations = []
+
+    for sentiment_dict in sentiment_dicts:
+
+        dataframes = []
+
+        for company in list_of_companies:
+            try:
+                df_tweets = open_df_sent(company)
+                # calculate timeperiod to parse stock quotes
+                start = date_start(df_tweets)
+                end = date_end(df_tweets)
+                # parse stock quotes
+                df_stock = daily_yield(company, start, end)
+
+                # get close to close sentiments
+                df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter)
+
+                df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                dataframes.append(df_sentstock)
+
+            except:
+                'Fuck Off'
+
+        df_DJI = pd.concat(dataframes)
+
+        corr_SentYields = {}
+        corr_SentYields['sentiment_dict'] = sentiment_dict
+        corr_SentYields['tweet_count'] = df_DJI['tweet_count'].sum()
+        corr_SentYields['day_count'] = len(df_DJI)
+
+        for var_sent in corr_var_sent:
+            corr_SentYields['correlation_{}'.format(var_sent)] = sent_stock_corr(df_DJI, var_sent, corr_var_stock)
+
+        correlations.append(corr_SentYields)
+
+    if volume_filter == True and sentiment_filter== True:
+        file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CorrAllStocks_{}_filtersON.xls'.format(corr_var_stock)
+
+    elif volume_filter == True and sentiment_filter == False:
+        file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CorrAllStocks_{}_volumefilterON.xls'.format(corr_var_stock)
+
+    elif volume_filter == False and sentiment_filter == True:
+        file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CorrAllStocks_{}_sentimentfilterON.xls'.format(corr_var_stock)
+
+    elif volume_filter == False and sentiment_filter == False:
+        file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CorrAllStocks_{}_filtersOFF.xls'.format(corr_var_stock)
+
+    df_corr = pd.DataFrame(correlations).set_index('sentiment_dict')
+    df_corr.to_excel(file_path, encoding='uft-8')
+
+    return df_corr
 
 
 def main_aggregate_sentiments(companies, sentiment_dictionary, sent_min):
@@ -273,6 +377,8 @@ def main_aggregate_sentiments(companies, sentiment_dictionary, sent_min):
 
 if __name__ == "__main__":
 
+    df_index = get_df_index('DJI')
+
     LM = 'SentimentLM'
     GI = 'SentimentGI'
     HE = 'SentimentHE'
@@ -280,22 +386,43 @@ if __name__ == "__main__":
     TB = 'SentimentTB'
 
     #Define companies you'd like to analyze
-    #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    companies = ['MSFT']
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    #companies = ['JPM', 'IBM']
     companies = [company.replace('$', '') for company in companies]
 
     #Define sentiment dicts you'd like to analyze
     sentiment_dicts = [TB]
 
     #Define aggregated sentiment metrics you'd like to analyze
-    corr_var = ['ratio_neg', 'ratio_neg_w', 'ratio_pos', 'ratio_pos_w', 'sent_mean', 'sent_mean_w', 'bullishness']
+    corr_var_sent = ['ratio_neg', 'ratio_neg_w', 'ratio_pos', 'ratio_pos_w', 'sent_mean', 'sent_mean_w', 'bullishness']
+    #Define ONE stock quote you'd  like to analyze
+    corr_var_stock = 'abnormal_returns'
+
+    #Define filters you'd like to use
+    volume_filter = False
+    sentiment_filter = True
 
     #Define sentiment minimum you'd like to analyze
-    sent_min = 0.2
+    sent_min = 75
 
     #Define percentile of volume you'd like to analyze and declare if you'd like to calculate the weighted volume
-    percentile = 50
-    w = False
+    percentile = 70
 
-    #Execute Main Functions
-    df_corr = main_correlation(companies, sentiment_dict, corr_var, sent_min)
+
+    #list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter
+    #df_corr = main_correlation_stockwise(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
+    #                                     corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+    #                                     sent_min=sent_min, percentile_tweetcount=percentile,
+    #                                     volume_filter=volume_filter, sentiment_filter=sentiment_filter)
+
+    #print(df_corr)
+    #start = datetime(2018, 1, 12)
+    #end = datetime(2018, 1, 24)
+    #print(daily_yield('JPM', start, end))
+
+    sentiment_dicts = [LM, GI, HE, QDAP, TB]
+
+    df_corrAllStocks = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
+                                                  corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+                                                  sent_min=sent_min, percentile_tweetcount=percentile,
+                                                  volume_filter=volume_filter, sentiment_filter=sentiment_filter)
