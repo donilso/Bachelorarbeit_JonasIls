@@ -362,9 +362,7 @@ def analyze_tweets(file_path_read, file_path_write):
 
 if __name__=='__main__':
 
-    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180124_2336' \
-                     '' \
-                     'twitter_streaming.json'
+    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180124_2336twitter_streaming.json'
     file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_{}.csv'
     analyze_tweets(file_path_read, file_path_write)
 

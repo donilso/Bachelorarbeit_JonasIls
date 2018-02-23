@@ -55,3 +55,21 @@ def threshold_sentiment(df_sent, sent_dict, percentile):
         sent_min_neg = np.percentile(values_neg, percentile)
     except:
         sent_min_neg = 0
+
+
+    values = []
+    for index, tweet in df_sent.iterrows():
+        sent = tweet['{}'.format(sent_dict)]
+
+        # transforming negative sentiments
+        if sent < 0:
+            sent = sent * (-1)
+        else:
+            sent = sent
+
+        values.append(sent)
+
+    try:
+        sent_min = np.percentile(values, percentile)
+    except:
+        sent_min = 0

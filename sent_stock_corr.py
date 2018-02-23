@@ -50,7 +50,7 @@ def get_df_index(index):
 
 def daily_yield(company, start, end):
     '''Function to parse daily stock quotes and calculate daily yields'''
-    #TODO: add a measure for intraday volatility
+    # TODO: correct abnormal returns
 
     # parsing stockdata
     df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
@@ -64,10 +64,13 @@ def daily_yield(company, start, end):
     # calculating abnormal returns
     df_stock['abnormal_returns'] = df_stock['daily_returns'] - df_stock['Index120day_average']
 
+    df_stock['volatility_parks'] = ((np.log(df_stock['High']-np.log(df_stock['Low'])))**2) / (4 * np.log(2))
+
     # extract relevant time period
     df_stock['Date'] = pd.to_datetime(df_stock['Date'])
     one_day = timedelta(days=1)
     start_index = df_stock[df_stock['Date'] == start].index.tolist()
+
     while not start_index:
         start_index = df_stock[df_stock['Date'] == (start + one_day)].index.tolist()
 
@@ -128,10 +131,13 @@ def threshold_sentiment(df_sent, sent_dict, percentile):
     return df_sent.loc[(df_sent[sent_dict] >= sent_min) | (df_sent[sent_dict] <= (sent_min * (-1)))]
 
 
-
 def threshold_tweetcount(c2c_sent, percentile):
+
     tc_min = np.percentile(c2c_sent['tweet_count_unfiltered'], percentile)
-    return c2c_sent.loc[(c2c_sent['tweet_count_unfiltered'] >= tc_min)]
+    df =  c2c_sent.loc[(c2c_sent['tweet_count_unfiltered'] >= tc_min)]
+    df_threshed = c2c_sent.loc[(c2c_sent['tweet_count_unfiltered'] < tc_min)]
+
+    return df
 
 
 def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter):
@@ -375,54 +381,173 @@ def main_aggregate_sentiments(companies, sentiment_dictionary, sent_min):
             return(df_c2c)
 
 
-if __name__ == "__main__":
+def main_ct_analysis (sentiment_dictionary, percentile):
 
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
+                 '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
+                 '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = [company.replace('$', '') for company in companies]
+
+
+    # Define aggregated sentiment metrics you'd like to analyze
+    corr_var_sent = ['ratio_neg', 'ratio_neg_w', 'ratio_pos', 'ratio_pos_w', 'sent_mean', 'sent_mean_w', 'bullishness']
+    # Define ONE stock quote you'd  like to analyze
+    corr_var_stock = 'abnormal_returns'
+
+    # Define sentiment minimum you'd like to analyze
+    sent_min = sent_min
+
+    # Define percentile of volume you'd like to analyze and declare if you'd like to calculate the weighted volume
+
+    filter_off = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dictionary,
+                                                  corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+                                                  sent_min=percentile, percentile_tweetcount=percentile,
+                                                  volume_filter=False, sentiment_filter=False)
+
+    filter_sentiment_on = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dictionary,
+                                                  corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+                                                  sent_min=percentile, percentile_tweetcount=percentile,
+                                                  volume_filter=False, sentiment_filter=True)
+
+    filter_volume_on = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dictionary,
+                                                  corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+                                                  sent_min=percentile, percentile_tweetcount=percentile,
+                                                  volume_filter=True, sentiment_filter=False)
+
+    filter_on = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dictionary,
+                                            corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+                                            sent_min=percentile, percentile_tweetcount=percentile,
+                                            volume_filter=True, sentiment_filter=True)
+
+    df = pd.concat([filter_off, filter_sentiment_on, filter_volume_on, filter_on])
+    df['Mode'] = np.asarray(['no_filter', 'sentiment_filter', 'volume_filter', 'both'])
+
+    df.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CP_{}{}.xls'.format(sentiment_dictionary, sent_min))
+
+    return df
+
+
+def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, sentiment_dict):
+    raw_data = []
+    for company in list_of_companies:
+        try:
+            df_tweets = open_df_sent(company)
+            # calculate timeperiod to parse stock quotes
+            start = date_start(df_tweets)
+            end = date_end(df_tweets)
+            # parse stock quotes
+            df_stock = daily_yield(company, start, end)
+
+            tuple = (df_tweets, df_stock)
+
+            raw_data.append(tuple)
+        except:
+            'Nothing'
+
+    byfilter_corr = []
+    byfilter_tweets = []
+    byfilter_days = []
+
+    for sent_min in sent_mins:
+        corr_SentYields = {}
+        tweets_count = {}
+        days_count = {}
+
+        corr_SentYields['sentiment_dict'] = sentiment_dict
+        tweets_count['sentiment_dict'] = sentiment_dict
+        days_count['sentiment_dict'] = sentiment_dict
+
+        corr_SentYields['sent_min'] = sent_min
+        tweets_count['sent_min'] = sent_min
+        days_count['sent_min'] = sent_min
+
+        for vol_min in vol_mins:
+
+            dataframes_c2c = []
+            for tuple in raw_data:
+                df_sent = tuple[0]
+                df_stock = tuple[1]
+
+                try:
+                    # get close to close sentiments
+                    df_c2cSent = close2close_sentiments(df_sent, sentiment_dict, df_stock, sent_min, vol_min, volume_filter=True, sentiment_filter=True)
+                    df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                    dataframes_c2c.append(df_sentstock)
+
+                except:
+                    'Fuck Off'
+
+            df_DJI = pd.concat(dataframes_c2c)
+            corr_SentYields['{}'.format(vol_min)] = sent_stock_corr(df_DJI, corr_var_sent, corr_var_stock)
+            tc = df_DJI['tweet_count'].sum()
+            fc = df_DJI['tweet_count_w'].sum()
+            tweets_count['{}'.format(vol_min)] = '{}/{}'.format(tc, fc)
+            days_count['{}'.format(vol_min)] = len(df_DJI)
+
+        byfilter_corr.append(corr_SentYields)
+        byfilter_tweets.append(tweets_count)
+        byfilter_days.append(days_count)
+
+    heatmap_corr = pd.DataFrame(byfilter_corr)
+    heatmap_tweets = pd.DataFrame(byfilter_tweets)
+    heatmap_days = pd.DataFrame(byfilter_days)
+
+    heatmap_corr.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMCorr_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
+    heatmap_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMTweets_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
+
+    return(heatmap_corr)
+
+if __name__ == "__main__":
     df_index = get_df_index('DJI')
 
     LM = 'SentimentLM'
     GI = 'SentimentGI'
     HE = 'SentimentHE'
-    QDAP = 'SentimentQDAP'
     TB = 'SentimentTB'
 
-    #Define companies you'd like to analyze
-    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    #companies = ['JPM', 'IBM']
+
+    # Define companies you'd like to analyze
+    # companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = ['MSFT']
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
+                 '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
+                 '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    # companies = ['JPM', 'IBM']
     companies = [company.replace('$', '') for company in companies]
 
-    #Define sentiment dicts you'd like to analyze
+    # Define sentiment dicts you'd like to analyze
     sentiment_dicts = [TB]
 
-    #Define aggregated sentiment metrics you'd like to analyze
+    # Define aggregated sentiment metrics you'd like to analyze
     corr_var_sent = ['ratio_neg', 'ratio_neg_w', 'ratio_pos', 'ratio_pos_w', 'sent_mean', 'sent_mean_w', 'bullishness']
-    #Define ONE stock quote you'd  like to analyze
-    corr_var_stock = 'abnormal_returns'
+    # Define ONE stock quote you'd  like to analyze
+    corr_var_stock = 'Adj Close'
 
-    #Define filters you'd like to use
+    # Define filters you'd like to use
     volume_filter = False
     sentiment_filter = True
 
-    #Define sentiment minimum you'd like to analyze
+    # Define sentiment minimum you'd like to analyze
     sent_min = 75
 
-    #Define percentile of volume you'd like to analyze and declare if you'd like to calculate the weighted volume
-    percentile = 70
+    # Define percentile of volume you'd like to analyze and declare if you'd like to calculate the weighted volume
+    percentile = 75
 
-
-    #list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter
-    #df_corr = main_correlation_stockwise(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
+    # list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter
+    # df_corr = main_correlation_stockwise(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
     #                                     corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
     #                                     sent_min=sent_min, percentile_tweetcount=percentile,
     #                                     volume_filter=volume_filter, sentiment_filter=sentiment_filter)
 
-    #print(df_corr)
-    #start = datetime(2018, 1, 12)
-    #end = datetime(2018, 1, 24)
-    #print(daily_yield('JPM', start, end))
+    # Execute Main Functions
+    #df_corr = main_correlation(companies, sentiment_dict, corr_var, sent_min)
+    #df_corrAllStocks = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
+    #                                              corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
+    #                                              sent_min=sent_min, percentile_tweetcount=percentile,
+    #                                              volume_filter=volume_filter, sentiment_filter=sentiment_filter)
 
-    sentiment_dicts = [LM, GI, HE, QDAP, TB]
+    percentile_list = [0, 25, 50, 75]
+    corr_var_sent = 'sent_mean_w'
+    corr_var_stock = 'abnormal_returns'
 
-    df_corrAllStocks = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
-                                                  corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
-                                                  sent_min=sent_min, percentile_tweetcount=percentile,
-                                                  volume_filter=volume_filter, sentiment_filter=sentiment_filter)
+    print(main(corr_var_stock, corr_var_sent, list_of_companies=companies, sent_mins=percentile_list, vol_mins=percentile_list, sentiment_dict='SentimentGI'))
