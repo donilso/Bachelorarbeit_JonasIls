@@ -111,24 +111,39 @@ def polarity(dataframe, sent_dict, pol):
 
 
 def threshold_sentiment(df_sent, sent_dict, percentile):
-    values = []
+    values_neg = []
+    values_pos = []
+
+    null_counter = 0
+
     for index, tweet in df_sent.iterrows():
         sent = tweet['{}'.format(sent_dict)]
 
-        # transforming negative sentiments
         if sent < 0:
-            sent = sent * (-1)
+            values_neg.append(sent)
+        elif sent > 0:
+            values_pos.append(sent)
         else:
-            sent = sent
 
-        values.append(sent)
+            null_counter = null_counter + 1
+
+            if (null_counter % 2) == 0:
+                values_pos.append(sent)
+            else:
+                values_neg.append(sent)
+
 
     try:
-        sent_min = np.percentile(values, percentile)
+        sent_min_pos = np.percentile(values_pos, percentile)
     except:
-        sent_min = 0
+        sent_min_pos = 0
 
-    return df_sent.loc[(df_sent[sent_dict] >= sent_min) | (df_sent[sent_dict] <= (sent_min * (-1)))]
+    try:
+        sent_min_neg = np.percentile(values_neg, (100 - percentile))
+    except:
+        sent_min_neg = 0
+
+    return df_sent.loc[(df_sent[sent_dict] >= sent_min_pos) | (df_sent[sent_dict] <= (sent_min_neg))]
 
 
 def threshold_tweetcount(c2c_sent, percentile):
@@ -508,10 +523,10 @@ if __name__ == "__main__":
 
     # Define companies you'd like to analyze
     # companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    companies = ['MSFT']
-    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
-                 '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
-                 '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = ['AXP']
+    #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
+    #             '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
+    #             '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     # companies = ['JPM', 'IBM']
     companies = [company.replace('$', '') for company in companies]
 
@@ -550,4 +565,6 @@ if __name__ == "__main__":
     corr_var_sent = 'sent_mean_w'
     corr_var_stock = 'abnormal_returns'
 
-    print(main(corr_var_stock, corr_var_sent, list_of_companies=companies, sent_mins=percentile_list, vol_mins=percentile_list, sentiment_dict='SentimentGI'))
+    #print(main(corr_var_stock, corr_var_sent, list_of_companies=companies, sent_mins=percentile_list, vol_mins=percentile_list, sentiment_dict='SentimentGI'))
+
+    df_aapl = open_df_sent('CSCO')

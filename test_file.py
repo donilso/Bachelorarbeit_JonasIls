@@ -1,6 +1,7 @@
 import pandas as pd
 from textblob import TextBlob
 import numpy as np
+import re
 
 def get_TBSentiment(text):
     '''Function to calculate a sentiment score based on the textblob library'''
@@ -8,68 +9,63 @@ def get_TBSentiment(text):
     SentimentTB = analysis.sentiment.polarity
     return(SentimentTB)
 
-
-def open_df_sent(company):
-    #file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101\\20180101Test_SentimentsLM_{}.csv'.format(company)
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180124\\24012018Test_Sentiments_{}.csv'.format(company)
-    df_tweets = pd.read_csv(file_path, encoding="utf-8")
-    df_tweets = df_tweets.fillna(0)
-    df_tweets = df_tweets.loc[df_tweets['user_followers'] not in [NaN, 'False', 'NaN']]
-    #df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
-    df_tweets['SentimentTB'] = df_tweets['text_clean'].apply(get_TBSentiment)
-
-    return df_tweets
-
-#msft = open_df_sent('MSFT')
-#print(msft.user_followers)
-
 def open_newsfeed(file_path):
     return(pd.read_csv(file_path, encoding="utf-8"))
 
 def write_articles(file_path, df):
     return(df.to_csv(file_path, encoding='utf-8'))
 
-def clean_text(text):
-   return text
 
-# einheitlich für positiv und negatives sentiment
-def threshold_sentiment(df_sent, sent_dict, percentile):
-
-    values_pos = []
-    values_neg = []
-
-    for index, tweet in df_sent.iterrows():
-        sent = tweet['{}'.format(sent_dict)]
-
-        # transforming negative sentiments
-        if sent < 0:
-           values_neg.append(sent)
-        else:
-            values_pos.append(sent)
-
-    try:
-        sent_min_pos = np.percentile(values_pos, percentile)
-    except:
-        sent_min_pos = 0
-    try:
-        sent_min_neg = np.percentile(values_neg, percentile)
-    except:
-        sent_min_neg = 0
+def drop_lines(dataframe):
+    df = dataframe.loc(len(dataframe['article']) >= 140 | 'Error accessing: ' not in dataframe['article'])
+    return df
 
 
-    values = []
-    for index, tweet in df_sent.iterrows():
-        sent = tweet['{}'.format(sent_dict)]
+def text_from_bits(bits, encoding='utf-8', errors='surrogatepass'):
+    n = int(bits, 2)
+    return n.to_bytes((n.bit_length() + 7) // 8, 'big').decode(encoding, errors) or '\0'
 
-        # transforming negative sentiments
-        if sent < 0:
-            sent = sent * (-1)
-        else:
-            sent = sent
 
-        values.append(sent)
+def clean_text(content):
 
-    try:
-        sent_min = np.percentile(values, percentile)
-    except:
-        sent_min = 0
+    url_str = r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+'
+    html_str = r'<[^>]+>'
+    non_ascii_str = r'[^\x00-\x7f]'
+    disclosure_str = r'(additional\s)?disclosure:\s[^"]+$'
+
+    regex_remove = [url_str, html_str, disclosure_str, non_ascii_str]
+
+    regex_str = [
+        r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
+        r"(?:[a-z][a-z'\-_]+[a-z])",  # words with - and '
+        r'(?:[\w_]+)',  # other words
+        r'(?:\S)'  # anything else
+    ]
+
+    tokens_re = re.compile(r'(' + '|'.join(regex_str) + ')', re.VERBOSE | re.IGNORECASE)
+
+
+    def text_from_bits(bits, encoding='utf-8', errors='surrogatepass'):
+        n = int(bits, 2)
+        return n.to_bytes((n.bit_length() + 7) // 8, 'big').decode(encoding, errors) or '\0'
+
+    def remove(content):
+        ch_toreplace = ['#', '\n', '\r']
+        content = content.replace(''.join(ch_toreplace), ' ')
+        content =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content, re.VERBOSE | re.IGNORECASE)
+        return(content)
+
+    def tokenize(text):
+        return tokens_re.findall(text)
+
+    def preprocess(content, lowercase=False):
+        text = remove(content)
+        #tokens = tokenize(text)
+        #if lowercase:
+        #    tokens = [token if emoticon_re.search(token) else token.lower() for token in tokens]
+        return text
+
+    return preprocess(content)
+
+#df_tweets.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_AXP.csv', encoding="utf-8")
+

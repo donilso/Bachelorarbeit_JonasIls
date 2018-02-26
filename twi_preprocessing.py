@@ -146,7 +146,7 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                 identifier = [])
 
 def write_data(df, file_path_write, company):
-    return df.to_csv(file_path_write.format(company), sep='#', encoding='utf-8', index_label='date', columns=['date', 'text_clean', 'time_adj', 'user_id', 'user_followers', 'retweet', 'timeslot']
+    return df.to_csv(file_path_write.format(company), sep='#', encoding='ascii', index_label='date', columns=['date', 'text_clean', 'time_adj', 'user_id', 'user_followers', 'retweet', 'timeslot']
                      )
 
 def word_in_text(text):
@@ -189,9 +189,14 @@ def clean_text(content):
     tokens_re = re.compile(r'(' + '|'.join(regex_str) + ')', re.VERBOSE | re.IGNORECASE)
     emoticon_re = re.compile(r'^' + emoticons_str + '$', re.VERBOSE | re.IGNORECASE)
 
+    def text_from_bits(bits, encoding='utf-8', errors='surrogatepass'):
+        n = int(bits, 2)
+        return n.to_bytes((n.bit_length() + 7) // 8, 'big').decode(encoding, errors) or '\0'
+
     def remove(content):
-        content_hashtags = content.replace('#', '')
-        content_cashtags = re.sub (cashtag_str, 'stock', content_hashtags, re.VERBOSE | re.IGNORECASE)
+        ch_toreplace = ['#', '\n', '\r']
+        content = content.replace(''.join(ch_toreplace), ' ')
+        content_cashtags = re.sub (cashtag_str, 'stock', content, re.VERBOSE | re.IGNORECASE)
         remove_rest =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content_cashtags, re.VERBOSE | re.IGNORECASE)
         return(remove_rest)
 
@@ -218,7 +223,7 @@ def analyze_tweets(file_path_read, file_path_write):
             company_symbols.append(company_symbol)
 
         tweets_data = []
-        tweets_file = open(file_path_read, "r", encoding='utf-8')
+        tweets_file = open(file_path_read, "r", encoding='ascii')
         for line in tweets_file:
             try:
                 tweet = json.loads(line)
@@ -370,3 +375,4 @@ if __name__=='__main__':
     #            encoding="utf-8",
     #            index_col='date')
     #print(df_old)
+
