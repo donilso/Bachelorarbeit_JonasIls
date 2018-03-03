@@ -194,7 +194,7 @@ def clean_text(content):
         return n.to_bytes((n.bit_length() + 7) // 8, 'big').decode(encoding, errors) or '\0'
 
     def remove(content):
-        ch_toreplace = ['#', '\n', '\r']
+        ch_toreplace = ['#', '\r\n']
         content = content.replace(''.join(ch_toreplace), ' ')
         content_cashtags = re.sub (cashtag_str, 'stock', content, re.VERBOSE | re.IGNORECASE)
         remove_rest =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content_cashtags, re.VERBOSE | re.IGNORECASE)
@@ -225,6 +225,8 @@ def analyze_tweets(file_path_read, file_path_write):
         tweets_data = []
         tweets_file = open(file_path_read, "r", encoding='ascii')
         for line in tweets_file:
+
+
             try:
                 tweet = json.loads(line)
                 tweets_data.append(tweet)
@@ -367,8 +369,8 @@ def analyze_tweets(file_path_read, file_path_write):
 
 if __name__=='__main__':
 
-    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\20180124_2336twitter_streaming.json'
-    file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_{}.csv'
+    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303\\20180303_twitterstreaming'
+    file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303\\20180303twitterfeed_{}.csv'
     analyze_tweets(file_path_read, file_path_write)
 
     #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),

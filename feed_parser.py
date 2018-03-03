@@ -140,6 +140,7 @@ if __name__ == "__main__":
 
             fetched_feed = feedparser.parse(URL)
 
+
             # parsing every entry of feed
             for entry in fetched_feed.entries:
 

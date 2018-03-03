@@ -3,6 +3,8 @@ import numpy as np
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
 from textblob import TextBlob
+import statsmodels.api as sm
+import math
 
 def get_TBSentiment(text):
     '''Function to calculate a sentiment score based on the textblob library'''
@@ -44,7 +46,7 @@ def date_end(df_sent):
 
 def get_df_index(index):
     df_index = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_^{}.csv'.format(index), encoding='utf-8')
-    df_index['daily_returns'] = df_index['Adj Close'] / df_index['Adj Close'].shift(1) - 1
+    df_index['daily_returns_index'] = df_index['Adj Close'] / df_index['Adj Close'].shift(1) - 1
     return df_index
 
 
@@ -55,30 +57,44 @@ def daily_yield(company, start, end):
     # parsing stockdata
     df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
 
+
     # calculating yields
     df_stock['daily_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
+    df_index = get_df_index('DJI')
 
-    # calculating the 120 average of index
-    df_stock['Index120day_average'] = pd.rolling_mean(df_index['daily_returns'], 120)
+    # contact dataframes
+    df = pd.concat([df_stock, df_index['daily_returns_index']], axis=1)
 
     # calculating abnormal returns
-    df_stock['abnormal_returns'] = df_stock['daily_returns'] - df_stock['Index120day_average']
+    #df = df.drop(df.index[0])
 
-    df_stock['volatility_parks'] = ((np.log(df_stock['High']-np.log(df_stock['Low'])))**2) / (4 * np.log(2))
+    #model = pd.stats.ols.MovingOLS(y=df.daily_returns, x=df.daily_returns_index, window_type='rolling', window=100, intercept=True)
+    #def model(endog):
+    #    model = sm.OLS(endog=endog, exog=df.daily_returns_index, window=100).fit()
+    #    return(model.params)
+    #df['beta'] = pd.rolling_apply(df.daily_returns, window=100, func=model(df['daily_returns']))
+
+    df.rolling_cov100 = pd.rolling_cov(arg1=df.daily_returns, arg2=df.daily_returns_index, window=100, min_periods=100)
+    df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
+    df['beta'] = df.rolling_cov100 / df.rolling_varIndex100
+    df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * df['beta']
+    #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
+    #calculating parks volatility
+    df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
 
     # extract relevant time period
-    df_stock['Date'] = pd.to_datetime(df_stock['Date'])
+    df['Date'] = pd.to_datetime(df['Date'])
     one_day = timedelta(days=1)
-    start_index = df_stock[df_stock['Date'] == start].index.tolist()
+    start_index = df_stock[df['Date'] == start].index.tolist()
 
     while not start_index:
-        start_index = df_stock[df_stock['Date'] == (start + one_day)].index.tolist()
+        start_index = df[df['Date'] == (start + one_day)].index.tolist()
 
-    end_index = df_stock[df_stock['Date'] == end].index.tolist()
+    end_index = df[df['Date'] == end].index.tolist()
     while not end_index:
-        end_index = df_stock[df_stock['Date'] == (end + one_day)].index.tolist()
+        end_index = df[df['Date'] == (end + one_day)].index.tolist()
 
-    return df_stock.loc[start_index[0] : end_index[0]].set_index('Date')
+    return df.loc[start_index[0] : end_index[0]].set_index('Date')
 
 
 # function to convert dates of typ sting to datetime format
@@ -111,6 +127,8 @@ def polarity(dataframe, sent_dict, pol):
 
 
 def threshold_sentiment(df_sent, sent_dict, percentile):
+
+    tweets_count = len(df_sent)
     values_neg = []
     values_pos = []
 
@@ -124,14 +142,15 @@ def threshold_sentiment(df_sent, sent_dict, percentile):
         elif sent > 0:
             values_pos.append(sent)
         else:
-
             null_counter = null_counter + 1
 
-            if (null_counter % 2) == 0:
-                values_pos.append(sent)
-            else:
-                values_neg.append(sent)
+    ratio_neg = len(values_neg) / tweets_count
+    ratio_pos = len(values_pos) / tweets_count
 
+    zero_neg=round(ratio_neg * null_counter)
+    zero_pos=ratio_pos * null_counter
+    values_neg.append([0]*zero_neg)
+    values_pos.append([0]*zero_pos)
 
     try:
         sent_min_pos = np.percentile(values_pos, percentile)
@@ -179,7 +198,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tw
         two_days = timedelta(days=2)
         three_days = timedelta(days=3)
 
-        #df_sent.date = pd.to_datetime(df_sent.date)
+        df_sent.date = pd.to_datetime(df_sent.date)
 
         # group tweets to c-2-c
         if today.weekday()!= 0:
@@ -196,7 +215,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tw
 
         sent_c2c['tweet_count_unfiltered'] = len(rows)
 
-        if sentiment_filter == True:
+        if sentiment_filter:
             rows = threshold_sentiment(rows, sent_dict, sent_min)
         else:
             rows = rows
@@ -442,7 +461,7 @@ def main_ct_analysis (sentiment_dictionary, percentile):
     return df
 
 
-def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, sentiment_dict):
+def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, sentiment_dict, write):
     raw_data = []
     for company in list_of_companies:
         try:
@@ -505,10 +524,12 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
 
     heatmap_corr = pd.DataFrame(byfilter_corr)
     heatmap_tweets = pd.DataFrame(byfilter_tweets)
-    heatmap_days = pd.DataFrame(byfilter_days)
 
-    heatmap_corr.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMCorr_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
-    heatmap_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMTweets_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
+    if write == True:
+        heatmap_corr.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMCorr_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
+        heatmap_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180124_HMTweets_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
+
+    else: 'Do Nothing'
 
     return(heatmap_corr)
 
@@ -522,49 +543,14 @@ if __name__ == "__main__":
 
 
     # Define companies you'd like to analyze
-    # companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    companies = ['AXP']
-    #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
-    #             '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
-    #             '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    # companies = ['JPM', 'IBM']
+    #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies=[]
     companies = [company.replace('$', '') for company in companies]
 
-    # Define sentiment dicts you'd like to analyze
-    sentiment_dicts = [TB]
-
-    # Define aggregated sentiment metrics you'd like to analyze
-    corr_var_sent = ['ratio_neg', 'ratio_neg_w', 'ratio_pos', 'ratio_pos_w', 'sent_mean', 'sent_mean_w', 'bullishness']
-    # Define ONE stock quote you'd  like to analyze
-    corr_var_stock = 'Adj Close'
-
-    # Define filters you'd like to use
-    volume_filter = False
-    sentiment_filter = True
-
-    # Define sentiment minimum you'd like to analyze
-    sent_min = 75
-
-    # Define percentile of volume you'd like to analyze and declare if you'd like to calculate the weighted volume
-    percentile = 75
-
-    # list_of_companies, sentiment_dicts, corr_var_sent, corr_var_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter
-    # df_corr = main_correlation_stockwise(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
-    #                                     corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
-    #                                     sent_min=sent_min, percentile_tweetcount=percentile,
-    #                                     volume_filter=volume_filter, sentiment_filter=sentiment_filter)
-
-    # Execute Main Functions
-    #df_corr = main_correlation(companies, sentiment_dict, corr_var, sent_min)
-    #df_corrAllStocks = main_correlation_allstocks(list_of_companies=companies, sentiment_dicts=sentiment_dicts,
-    #                                              corr_var_sent=corr_var_sent, corr_var_stock=corr_var_stock,
-    #                                              sent_min=sent_min, percentile_tweetcount=percentile,
-    #                                              volume_filter=volume_filter, sentiment_filter=sentiment_filter)
-
-    percentile_list = [0, 25, 50, 75]
-    corr_var_sent = 'sent_mean_w'
     corr_var_stock = 'abnormal_returns'
+    corr_var_sent = 'sent_mean_w'
+    filter = [0, 25, 50, 70]
 
-    #print(main(corr_var_stock, corr_var_sent, list_of_companies=companies, sent_mins=percentile_list, vol_mins=percentile_list, sentiment_dict='SentimentGI'))
+    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=False)
+    print(heat_map)
 
-    df_aapl = open_df_sent('CSCO')

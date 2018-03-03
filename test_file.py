@@ -67,5 +67,14 @@ def clean_text(content):
 
     return preprocess(content)
 
-#df_tweets.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_AXP.csv', encoding="utf-8")
+with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_AXP.csv','r') as file:
+    text = file.read()
+    text_clean = text.replace('\r\n', ' ')
+
+with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\test_AXP.txt','w') as file_write:
+    file_write.write(text_clean)
+    file_write.close()
+
+
+
 
