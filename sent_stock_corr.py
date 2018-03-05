@@ -15,7 +15,7 @@ def get_TBSentiment(text):
 
 def open_df_sent(company):
     #file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101\\20180101Test_SentimentsLM_{}.csv'.format(company)
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180124\\24012018Test_Sentiments_{}.csv'.format(company)
+    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180124\\24012018Test_Sentiments_clean_{}.csv'.format(company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
     df_tweets = df_tweets
 
@@ -127,8 +127,8 @@ def polarity(dataframe, sent_dict, pol):
 
 
 def threshold_sentiment(df_sent, sent_dict, percentile):
+    print("DF SENT FOR THRESHOLD:", len(df_sent))
 
-    tweets_count = len(df_sent)
     values_neg = []
     values_pos = []
 
@@ -143,14 +143,22 @@ def threshold_sentiment(df_sent, sent_dict, percentile):
             values_pos.append(sent)
         else:
             null_counter = null_counter + 1
+            #if (null_counter % 2) == 0:
+            #    values_pos.append(sent)
+            #else:
+            #    values_neg.append(sent)
 
-    ratio_neg = len(values_neg) / tweets_count
-    ratio_pos = len(values_pos) / tweets_count
+    #tweets_count = len(values_neg + values_pos)
 
-    zero_neg=round(ratio_neg * null_counter)
-    zero_pos=ratio_pos * null_counter
-    values_neg.append([0]*zero_neg)
-    values_pos.append([0]*zero_pos)
+    #try: ratio_neg = len(values_neg) / tweets_count
+    #except: ratio_neg = 0
+    #try: ratio_pos = len(values_pos) / tweets_count
+    #except: ratio_pos = 0
+
+    #zero_neg = round(ratio_neg * null_counter)
+    #zero_pos = round(ratio_pos * null_counter)
+    #values_neg = values_neg + ([0]*zero_neg)
+    #values_pos = values_pos + ([0]*zero_pos)
 
     try:
         sent_min_pos = np.percentile(values_pos, percentile)
@@ -189,7 +197,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tw
         # adding column of weighted sentiment depending on the followers count
         df_sent['sent_w'] = df_sent[sent_dict] * df_sent['user_followers']
 
-        today = date
+        today = date.to_datetime()
 
         sent_c2c['date'] = today
 
@@ -201,7 +209,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tw
         df_sent.date = pd.to_datetime(df_sent.date)
 
         # group tweets to c-2-c
-        if today.weekday()!= 0:
+        if today.weekday()!=0:
             yesterday = today - one_day
             rows_today = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot.isin(['during', 'before']))]
             rows_yesterday = df_sent.loc[(df_sent.date == yesterday) & (df_sent.timeslot == 'after')]
@@ -217,6 +225,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_min, percentile_tw
 
         if sentiment_filter:
             rows = threshold_sentiment(rows, sent_dict, sent_min)
+
         else:
             rows = rows
 
@@ -464,19 +473,16 @@ def main_ct_analysis (sentiment_dictionary, percentile):
 def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, sentiment_dict, write):
     raw_data = []
     for company in list_of_companies:
-        try:
-            df_tweets = open_df_sent(company)
-            # calculate timeperiod to parse stock quotes
-            start = date_start(df_tweets)
-            end = date_end(df_tweets)
-            # parse stock quotes
-            df_stock = daily_yield(company, start, end)
+        df_tweets = open_df_sent(company)
+        # calculate timeperiod to parse stock quotes
+        start = date_start(df_tweets)
+        end = date_end(df_tweets)
+        # parse stock quotes
+        df_stock = daily_yield(company, start, end)
 
-            tuple = (df_tweets, df_stock)
+        tuple = (df_tweets, df_stock)
 
-            raw_data.append(tuple)
-        except:
-            'Nothing'
+        raw_data.append(tuple)
 
     byfilter_corr = []
     byfilter_tweets = []
@@ -502,14 +508,14 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
                 df_sent = tuple[0]
                 df_stock = tuple[1]
 
-                try:
+                #try:
                     # get close to close sentiments
-                    df_c2cSent = close2close_sentiments(df_sent, sentiment_dict, df_stock, sent_min, vol_min, volume_filter=True, sentiment_filter=True)
-                    df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
-                    dataframes_c2c.append(df_sentstock)
+                df_c2cSent = close2close_sentiments(df_sent, sentiment_dict, df_stock, sent_min, vol_min, volume_filter=True, sentiment_filter=True)
+                df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                dataframes_c2c.append(df_sentstock)
 
-                except:
-                    'Fuck Off'
+                #except:
+                'Fuck Off'
 
             df_DJI = pd.concat(dataframes_c2c)
             corr_SentYields['{}'.format(vol_min)] = sent_stock_corr(df_DJI, corr_var_sent, corr_var_stock)
@@ -543,14 +549,13 @@ if __name__ == "__main__":
 
 
     # Define companies you'd like to analyze
-    #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    companies=[]
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     companies = [company.replace('$', '') for company in companies]
 
-    corr_var_stock = 'abnormal_returns'
+    corr_var_stock = 'daily_returns'
     corr_var_sent = 'sent_mean_w'
-    filter = [0, 25, 50, 70]
+    filter = [0, 25, 50, 75]
 
-    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=False)
+    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=True)
     print(heat_map)
 
