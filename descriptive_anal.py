@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from textblob import TextBlob
 import calendar
+import sent_stock_corr
 
 
 def time_to_int(timestamp):
@@ -36,14 +37,16 @@ def plot_sentiment_dist(list_of_companies, sentiment_dict):
 
     sent_list = pd.concat(raw_data)
 
-    bins = [-1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    plt.hist(sent_list, bins, histtype='bar', rwidth=0.6)
+    #bins = [-1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    bins = 11
+    plt.hist(sent_list, bins, histtype='bar', alpha=0.8, rwidth=0.8)
     plt.xlabel('{}'.format(sentiment_dict))
     plt.ylabel('Number of Tweets')
     plt.title('Histogram of Tweets Sentiment')
     plt.show()
 
-def plot_tweetcount_bytime(list_of_companies):
+
+def plot_tweetcount_byweekday(list_of_companies):
     raw_data = []
     for company in list_of_companies:
         df_tweets = open_df_sent(company, ['time_adj', 'date'])
@@ -66,6 +69,34 @@ def plot_tweetcount_bytime(list_of_companies):
     plt.show()
 
 
+def plot_twittervsstock_bydate(company, stock_var, twi_var, sentiment_dict):
+
+    df_tweets = sent_stock_corr.open_df_sent(company)
+
+    start = sent_stock_corr.date_start(df_tweets)
+    end = sent_stock_corr.date_end(df_tweets)
+
+    df_stock = sent_stock_corr.daily_yield(company, end=end, start=start)
+    df_stock = df_stock['{}'.format(stock_var)]
+
+    df_tweets = sent_stock_corr.close2close_sentiments(df_sent=df_tweets, df_stock=df_stock,
+                                                       sent_mins=0, vol_mins=0, sentiment_filter=False, volume_filter=False,
+                                                       sent_dict=sentiment_dict)
+    df_tweets = df_tweets['{}'.format(twi_var)]
+
+    df_twistock = pd.concat([df_tweets, df_stock], axis=1)
+    df_twistock.index = df_twistock.index.astype(str)
+    #df_twistock = df_twistock.reset_index()
+    print(df_twistock)
+
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    df_twistock['{}'.format(twi_var)].plot(kind='bar', color='y', ax=ax1)
+    df_twistock['{}'.format(stock_var)].plot(kind='line', marker='d', ax=ax2)
+    ax1.yaxis.tick_right()
+    ax2.yaxis.tick_left()
+
+    plt.show()
 
 LM = 'SentimentLM'
 GI = 'SentimentGI'
@@ -77,5 +108,10 @@ companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '
 companies = [company.replace('$', '') for company in companies]
 
 #plot_sentiment_dist(companies, TB)
-plot_tweetcount_bytime(companies)
+#plot_tweetcount_bytime(companies)
 
+# Plot Twitter vs Stock
+stock_var = 'abnormal_returns'
+twi_var = 'tweet_count'
+
+plot_twittervsstock_bydate(company='CAT', sentiment_dict=TB, stock_var=stock_var, twi_var=twi_var)
