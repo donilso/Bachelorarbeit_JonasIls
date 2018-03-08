@@ -316,7 +316,7 @@ def main_correlation_stockwise(list_of_companies, list_of_dicts, list_of_corr_va
 
 def main_correlation_allstocks(sentiment_dict, sent_min, vol_min):
     #df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
-    df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\SentimentGI\\20180217_DF_C2CSentimentGI_50vol_50sen.csv')
+    df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\SentimentGI\\20180217_DF_C2CSentimentGI_50vol_0sen.csv')
 
     correlations = df_sentstock.corr()
 
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     #heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=True)
     #print(heat_map)
 
-    main_correlation_allstocks(GI,  50, 50)
+    main_correlation_allstocks(GI,  0, 50)
 
     #corr_matrix = main_correlation_stockwise(companies, list_of_dicts, [corr_var_sent], corr_var_stock, 0, 50, True, True)
     #print(corr_matrix)

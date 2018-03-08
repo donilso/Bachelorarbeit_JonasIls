@@ -68,3 +68,10 @@ def clean_text(content):
         return text
 
     return preprocess(content)
+
+df_news = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Cleaned_Newsfeed_$AXP.csv', sep='#')
+
+re_time = r'\d\d:\d\d:\d\d, \d\d:\d\d:\d\d'
+            pattern_time = re.compile(re_time)
+            pattern_time = pattern_time.findall(line)
+

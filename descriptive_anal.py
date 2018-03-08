@@ -23,7 +23,7 @@ def create_c2c(company, sent_dict):
 
     df_sentstock = ssc.close2close_sentiments(df_sent, sent_dict, df_stock, 0, 0, volume_filter=True, sentiment_filter=True)
     df_sentstock = pd.concat([df_sentstock, df_stock], axis=1)
-    #df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2C_{}'.format(company), index_label='date')
+    df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2C_{}'.format(company), index_label='date')
     return(df_sentstock)
 
 
@@ -141,6 +141,8 @@ def plot_tweetcount_byweekday(list_of_companies):
 
 
 def plot_twittervsstock(company, df_sentstock, stock_var, twi_var):
+    #df_sentstock=df_sentstock.reset_index()
+    #df_sentstock=df_sentstock.set_index('date')
     df_sentstock.index = df_sentstock.index.astype(str)
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
@@ -149,7 +151,8 @@ def plot_twittervsstock(company, df_sentstock, stock_var, twi_var):
     ax1.yaxis.tick_right()
     ax2.yaxis.tick_left()
     plt.xlabel('Trading Day')
-    plt.title('Tweets per Weekday')
+    plt.title('{} vs {}'.format(twi_var, stock_var))
+    plt.legend(loc=0)
 
     plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Twitter_vs_Stock\\PlotTwiStock{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
 
@@ -182,16 +185,20 @@ companies = [company.replace('$', '') for company in companies]
 
 #plot_sentiment_dist(companies, TB)
 
-plot_tweetcount_byweekday(companies)
+#plot_tweetcount_byweekday(companies)
 
 #plot_tweetcount_byweekday(companies)
 
-#for company in companies:
-    #print(company)
-    #df_c2c = open_df_c2c(company)
-    #scatterplot(company, df_c2c, stock_var, twi_var)
-    #plot_twittervsstock(company, df_c2c, stock_var, twi_var)
+for company in companies:
+    print(company)
+    df_c2c = open_df_c2c(company)
+    scatterplot(company, df_c2c, stock_var, twi_var)
+    plot_twittervsstock(company, df_c2c, stock_var, twi_var)
 
-df_c2cAllStocks = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\SentimentGI\\20180217_DF_C2CSentimentGI_50vol_50sen.csv', encoding='utf-8')
-scatterplot('AllStocks', df_c2cAllStocks, stock_var, twi_var)
+#for var in twi_var:
+#    df_c2cAllStocks = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\SentimentGI\\20180217_DF_C2CSentimentGI_50vol_0sen.csv', encoding='utf-8')
+#    df_c2cAllStocks['volume_norm'] = df_c2cAllStocks['Volume'] / ((df_c2cAllStocks['High'] + df_c2cAllStocks['Low']) / 2)
+#    df_c2cAllStocks['abnormal_returns_simple'] = df_c2cAllStocks['daily_returns'] - df_c2cAllStocks['daily_returns_index']
+#    #print(df_c2cAllStocks[['Volume', 'volume_norm']])
+#    scatterplot('AllStocks', df_c2cAllStocks, stock_var, var)
 
