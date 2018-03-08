@@ -2,6 +2,8 @@ import pandas as pd
 from textblob import TextBlob
 import numpy as np
 import re
+import json
+
 
 def get_TBSentiment(text):
     '''Function to calculate a sentiment score based on the textblob library'''
@@ -66,7 +68,3 @@ def clean_text(content):
         return text
 
     return preprocess(content)
-
-
-df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180124\\00024012018twitterfeed_BA.csv', sep='#')
-print(df)

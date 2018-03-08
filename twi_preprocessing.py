@@ -146,8 +146,15 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
                 identifier = [])
 
 def write_data(df, file_path_write, company):
-    return df.to_csv(file_path_write.format(company), sep='#', encoding='ascii', index_label='date', columns=['date', 'text_clean', 'time_adj', 'user_id', 'user_followers', 'retweet', 'timeslot']
-                     )
+    with open(file_path_write.format(company), 'a') as f:
+        df.to_csv(f, sep='#', encoding='utf-8', index_label='date', header=False,
+                  columns=['date', 'id',  'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot'])
+
+def write_data_one(df, file_path_write, company):
+    with open(file_path_write.format(company), 'a') as f:
+        df.to_csv(f, sep='#', encoding='utf-8', index_label='date', header=True,
+                  columns=['date', 'id', 'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot'])
+
 
 def word_in_text(text):
     keywords = ["stock", "price", "market", "share"]
@@ -160,6 +167,7 @@ def word_in_text(text):
         if match:
             return True
         return False
+
 
 def clean_text(content):
     emoticons_str = r"""
@@ -194,11 +202,12 @@ def clean_text(content):
         return n.to_bytes((n.bit_length() + 7) // 8, 'big').decode(encoding, errors) or '\0'
 
     def remove(content):
-        ch_toreplace = ['#', '\r\n']
-        content = content.replace(''.join(ch_toreplace), ' ')
-        content_cashtags = re.sub (cashtag_str, 'stock', content, re.VERBOSE | re.IGNORECASE)
-        remove_rest =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content_cashtags, re.VERBOSE | re.IGNORECASE)
-        return(remove_rest)
+        content = content.replace('#', ' ')
+        content = content.replace('\r', '')
+        content = content.replace('\n', '')
+        content = re.sub (cashtag_str, 'stock', content, re.VERBOSE | re.IGNORECASE)
+        content =  re.sub(r'(' + '|'.join(regex_remove) + ')', '', content, re.VERBOSE | re.IGNORECASE)
+        return(content)
 
     def tokenize(text):
         return tokens_re.findall(text)
@@ -212,169 +221,251 @@ def clean_text(content):
 
     return preprocess(content)
 
-def analyze_tweets(file_path_read, file_path_write):
-    #for company in RSSFeeds._by_company:
-        #Reading Tweets
+def read_bigfile(file_path, file_path_write, function_call):
 
-        company_symbols = []
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
+                 '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
+                 '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = [company.replace('$', '') for company in companies]
 
-        for company in RSSFeeds._by_company:
-            company_symbol = company.company_Feed.replace("$", "")
-            company_symbols.append(company_symbol)
+    print('Open File...')
+    with open(file_path) as tweets_file:
+        counter = 0
+        write_count = 0
+        badtweets_counter = 0
+        tweets_data = list()
 
-        tweets_data = []
-        tweets_file = open(file_path_read, "r", encoding='ascii')
         for line in tweets_file:
-
 
             try:
                 tweet = json.loads(line)
+                counter = counter + 1
+
                 tweets_data.append(tweet)
-            except:
+                print('Line N. {}'.format(counter))
+
+            except Exception as e:
+                print(e)
+
+            if len(tweets_data) == 10000:
+
+                analyzed_tweets = list()
+
+                for tweet in tweets_data:
+
+                    try:
+                        parsed_tweet = {}
+
+                        parsed_tweet['id'] = tweet['id_str']
+
+                        parsed_tweet['text_clean'] = clean_text(tweet['text'])
+                        ts = tweet['created_at']
+
+                        # Get Timestamp and adjust Timestamp to EST
+                        fmt = '%a %b %d %H:%M:%S %z %Y'
+                        timestamp = datetime.datetime.strptime(ts, fmt)
+
+                        # adjusting timestamp to EST
+                        EST = timezone('EST')
+                        fmt_adj = '%Y-%m-%d %H:%M:%S'
+                        adjusting = timestamp.astimezone(EST).strftime(fmt_adj)
+                        timestamp_adj = datetime.datetime.strptime(adjusting, fmt_adj)
+                        parsed_tweet['time_adj'] = str(timestamp_adj.time())
+                        parsed_tweet['time_fetched'] = str(timestamp.time())
+                        parsed_tweet['date'] = timestamp_adj.date()
+
+                        # converting timestamp to integer to classify tweets by "timeslot"
+                        def to_integer(ts):
+                            return 10000 * ts.hour + 100 * ts.minute + ts.second
+
+                        time_int = to_integer(timestamp_adj.time())
+
+                        if time_int > 93000 and time_int < 160000:
+                            parsed_tweet["timeslot"] = "during"
+                        else:
+                            if time_int > 0 and time_int < 93000:
+                                parsed_tweet["timeslot"] = "before"
+                            if time_int > 160000 and time_int < 235959:
+                                parsed_tweet["timeslot"] = "after"
+
+                        # Get follower count of user
+                        user_dict = tweet['user']
+                        parsed_tweet['user_followers'] = user_dict['followers_count']
+
+                        # Get Symbols to reference tweet to company
+                        entities = tweet['entities']
+                        tweet_symbols_dict = entities['symbols']
+                        tweet_symbols = []
+
+                        for tweet_symbol_dict in tweet_symbols_dict:
+                            tweet_symbols.append(tweet_symbol_dict['text'].upper())
+
+                        if tweet_symbols:
+                            parsed_tweet['symbols'] = tweet_symbols
+
+                        referenced_company = [x for x in companies if x in tweet_symbols]
+
+                        if referenced_company:
+                            parsed_tweet['reference'] = referenced_company
+
+                        for company in companies:
+                            if company in referenced_company:
+                                a = "True"
+                            else:
+                                a = "False"
+
+                            parsed_tweet['xref_{}'.format(company)] = a
+
+                        # identify retweets
+                        RT_mentions_str = r'(?:RT @[\w_]+[:])'
+                        retweet_re = re.compile(RT_mentions_str, re.IGNORECASE)
+                        matches = retweet_re.search(tweet['text'])
+                        if matches:
+                            parsed_tweet['retweet'] = '1'
+                        else:
+                            parsed_tweet['retweet'] = '0'
+
+                        analyzed_tweets.append(parsed_tweet)
+
+                    except Exception as e:
+                        badtweets_counter = badtweets_counter + 1
+                        print(tweet)
+                        print(e)
+
+                        with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a') as f:
+                            f.write('{} for : {} \r\n'.format(e, tweet))
+
+                        continue
+
+                write_count = write_count + 1
+                # create dataframe
+                df_tweets = pd.DataFrame(analyzed_tweets)
+                df_tweets = df_tweets.drop_duplicates(subset='id')
+                df_tweets = df_tweets.set_index('date')
+
+                # write dataframe for anycompany to csv
+                for company in companies:
+                    rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company)] == 'True']
+
+                    if write_count == 1 and function_call == 1:
+                        write_data_one(rows_ref, file_path_write, company)
+                    else:
+                        write_data(rows_ref, file_path_write, company)
+
+                analyzed_tweets.clear()
+                tweets_data.clear()
+
                 continue
 
-        #Structuring Tweets
-        analyzed_tweets = []
-
-        nosymbol_count = 0
-        noreference_count = 0
-
-        print("Processing Tweets ...")
-        counter = 0
-        for tweet in tweets_data:
-            counter = counter + 1
-            print(counter)
-            #Dictionary to store information about Tweet
-            parsed_tweet = {}
-
-            parsed_tweet['id'] = tweet['id_str']
-
-            #Get text and language
-            parsed_tweet['text'] = tweet['text']
-            parsed_tweet['text_clean'] = clean_text(tweet['text'])
-            parsed_tweet['lang'] = tweet['lang']
-            ts = tweet['created_at']
-
-            #Get Timestamp and adjust Timestamp to EST
-            fmt = '%a %b %d %H:%M:%S %z %Y'
-            timestamp = datetime.datetime.strptime(ts, fmt)
-
-            # adjusting timestamp to EST
-            EST = timezone('EST')
-            fmt_adj = '%Y-%m-%d %H:%M:%S'
-            adjusting = timestamp.astimezone(EST).strftime(fmt_adj)
-            timestamp_adj = datetime.datetime.strptime(adjusting, fmt_adj)
-            parsed_tweet['time_adj'] = str(timestamp_adj.time())
-            parsed_tweet['time_fetched'] = str(timestamp.time())
-            parsed_tweet['date'] = timestamp_adj.date()
-
-            # converting timestamp to integer to classify tweets by "timeslot"
-            def to_integer(ts):
-                return 10000 * ts.hour + 100 * ts.minute + ts.second
-            time_int = to_integer(timestamp_adj.time())
-
-            if time_int > 93000 and time_int < 160000: parsed_tweet["timeslot"] = "during"
             else:
-                if time_int > 0 and time_int < 93000:
-                    parsed_tweet["timeslot"] = "before"
-                if time_int > 160000 and time_int < 235959:
-                    parsed_tweet["timeslot"] = "after"
+                continue
 
-            #Get information so evaluate popularity of tweet
-            #parsed_tweet['retweets'] = tweet['retweet_count']
-            #parsed_tweet['favorite'] = tweet['favorite_count']
-            user_dict = tweet['user']
-            parsed_tweet['user_id'] = user_dict['id_str']
-            parsed_tweet['user_followers'] = user_dict['followers_count']
 
-            #Get Symbols to reference tweet to company
-            entities = tweet['entities']
-            tweet_symbols_dict = entities['symbols']
-            tweet_symbols = []
+        analyzed_tweets = list()
 
-            for tweet_symbol_dict in tweet_symbols_dict:
-                tweet_symbols.append(tweet_symbol_dict['text'].upper())
+        for tweet in tweets_data:
 
-            if tweet_symbols:
-                parsed_tweet['symbols'] = tweet_symbols
+            try:
+                parsed_tweet = {}
 
-            referenced_company = [x for x in company_symbols if x in tweet_symbols]
+                parsed_tweet['id'] = tweet['id_str']
 
-            if referenced_company:
-                parsed_tweet['reference'] = referenced_company
-                #parsed_tweet['reference'] = ''.join(referenced_company)
+                parsed_tweet['text_clean'] = clean_text(tweet['text'])
+                ts = tweet['created_at']
 
-            for company_symbol in company_symbols:
-                if company_symbol in referenced_company:
-                    a = "True"
+                # Get Timestamp and adjust Timestamp to EST
+                fmt = '%a %b %d %H:%M:%S %z %Y'
+                timestamp = datetime.datetime.strptime(ts, fmt)
+
+                # adjusting timestamp to EST
+                EST = timezone('EST')
+                fmt_adj = '%Y-%m-%d %H:%M:%S'
+                adjusting = timestamp.astimezone(EST).strftime(fmt_adj)
+                timestamp_adj = datetime.datetime.strptime(adjusting, fmt_adj)
+                parsed_tweet['time_adj'] = str(timestamp_adj.time())
+                parsed_tweet['time_fetched'] = str(timestamp.time())
+                parsed_tweet['date'] = timestamp_adj.date()
+
+                # converting timestamp to integer to classify tweets by "timeslot"
+                def to_integer(ts):
+                    return 10000 * ts.hour + 100 * ts.minute + ts.second
+
+                time_int = to_integer(timestamp_adj.time())
+
+                if time_int > 93000 and time_int < 160000:
+                    parsed_tweet["timeslot"] = "during"
                 else:
-                    a = "False"
+                    if time_int > 0 and time_int < 93000:
+                        parsed_tweet["timeslot"] = "before"
+                    if time_int > 160000 and time_int < 235959:
+                        parsed_tweet["timeslot"] = "after"
 
-                parsed_tweet['xref_{}'.format(company_symbol)] = a
+                # Get follower count of user
+                user_dict = tweet['user']
+                parsed_tweet['user_followers'] = user_dict['followers_count']
 
-            #analyzing relevance
-            parsed_tweet['relevant'] = word_in_text(tweet['text'])
+                # Get Symbols to reference tweet to company
+                entities = tweet['entities']
+                tweet_symbols_dict = entities['symbols']
+                tweet_symbols = []
 
-            #identify retweets
-            RT_mentions_str = r'(?:RT @[\w_]+[:])'
-            retweet_re = re.compile(RT_mentions_str, re.IGNORECASE)
-            matches = retweet_re.search(tweet['text'])
-            if matches:
-                parsed_tweet['retweet'] = 'RT'
+                for tweet_symbol_dict in tweet_symbols_dict:
+                    tweet_symbols.append(tweet_symbol_dict['text'].upper())
 
-            analyzed_tweets.append(parsed_tweet)
+                if tweet_symbols:
+                    parsed_tweet['symbols'] = tweet_symbols
 
-        #create dataframe
+                referenced_company = [x for x in companies if x in tweet_symbols]
+
+                if referenced_company:
+                    parsed_tweet['reference'] = referenced_company
+
+                for company in companies:
+                    if company in referenced_company:
+                        a = "True"
+                    else:
+                        a = "False"
+
+                    parsed_tweet['xref_{}'.format(company)] = a
+
+                # identify retweets
+                RT_mentions_str = r'(?:RT @[\w_]+[:])'
+                retweet_re = re.compile(RT_mentions_str, re.IGNORECASE)
+                matches = retweet_re.search(tweet['text'])
+                if matches:
+                    parsed_tweet['retweet'] = '1'
+                else:
+                    parsed_tweet['retweet'] = '0'
+
+                analyzed_tweets.append(parsed_tweet)
+
+            except Exception as e:
+                badtweets_counter = badtweets_counter + 1
+                print(tweet)
+                print(e)
+
+                with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a') as f:
+                    f.write('{} for : {} \r\n'. format(e, tweet))
+
         df_tweets = pd.DataFrame(analyzed_tweets)
         df_tweets = df_tweets.drop_duplicates(subset='id')
         df_tweets = df_tweets.set_index('date')
-        #df_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\alltweets.xls', columns=['text_clean','text'])
 
-        #converting datatypes of columns
-        df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
-        df_tweets['text'] = df_tweets['text'].astype(str)
+        # write dataframe for anycompany to csv
+        for company in companies:
+            rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company)] == 'True']
+            write_data(rows_ref, file_path_write, company)
 
-        #analyzing the stream
-        nosymbol_count = df_tweets['symbols'].isnull().sum()
-        noreference_count = df_tweets['reference'].isnull().sum()
-
-        nosymbol_ratio = nosymbol_count / len(df_tweets.index)
-        noreference_ratio = noreference_count / len(df_tweets.index)
-
-        #identifying unreferenced tweets and writing them to excel
-        rows_unref = df_tweets.loc[df_tweets['reference'].isnull()]
-        #rows_unref.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\twitterfeed_noreference.csv')
-
-        #write dataframe for anycompany to csv
-        for company_symbol in company_symbols:
-            rows_ref = df_tweets.loc[df_tweets['xref_{}'.format(company_symbol)] == 'True']
-            write_data(rows_ref, file_path_write, company_symbol)
-            #rows_ref.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Regex Test\\Regex_Test{}.xls'.format(company_symbol), columns=['text', 'text_clean'])
-            print(company_symbol, ":", len(rows_ref))
-
-        print(len(df_tweets.index))
-        print('No Reference')
-        print(noreference_count)
-        print(noreference_ratio)
-        print('No Symbol')
-        print(nosymbol_count)
-        print(nosymbol_ratio)
-
-        #print(df_tweets['time_adj'].head(1))
-        #print(df_tweets['time_adj'].tail(1))
-        #print(df_tweets)
-        print(df_tweets.text_clean)
-        return(len(df_tweets))
+        print("BAD TWEETS COUNT: {}".format(badtweets_counter))
 
 
 if __name__=='__main__':
+    files = ['01_20180101twitter_streaming.json', '02_20180107twitter_streaming.json', '03_20180108twitter_streaming.json', '04_20180112twitter_streaming01.json','05_20180112twitter_streaming02.json', '06_20180112twitter_streaming03.json']
+    function_call = 0
+    for file in files:
+        file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\Rohdaten\\{}'.format(file)
+        file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180101_20180217\\20180101_20180217_twitterstreaming_{}.csv'
+        function_call = function_call + 1
+        read_bigfile(file_path_read, file_path_write, function_call)
 
-    file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303\\20180303_twitterstreaming'
-    file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303\\20180303twitterfeed_{}.csv'
-    analyze_tweets(file_path_read, file_path_write)
-
-    #df_old = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Newsfeed_{}.csv'.format('MSFT'),
-    #            encoding="utf-8",
-    #            index_col='date')
-    #print(df_old)
 

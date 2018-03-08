@@ -5,13 +5,14 @@ import datetime
 print("Collecting Stock Data")
 
 start = datetime.datetime(2017, 1, 1)
-end = datetime.datetime(2018, 2, 1)
+end = datetime.datetime(2018, 3, 1)
 
 #companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE',
 #             '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX',
-#             '$UNH', '$VZ', '$V', '$WMT']
+#             '$UNH', '$VZ', '$V', '$WMT', '^DJI']
 
-companies = ['^DJI']
+companies = ['^VIX']
+
 companies = [company.replace('$', '') for company in companies]
 
 for company in companies:

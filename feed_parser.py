@@ -47,8 +47,8 @@ BA = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYS
                           'http://finance.yahoo.com/rss/headline?s=BA'],
               company_Feed='$BA')
 CAT = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:CAT&ei=2KotWrkXhvizAc6DhbgD&output=rss',
-                           'http://finance.yahoo.com/rss/headline?s=CAT'],
-               company_Feed='$CAT')
+                          'http://finance.yahoo.com/rss/headline?s=CAT'],
+              company_Feed='$CAT')
 CVX = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NYSE:CVX&ei=6qotWqi_LIHuUbqjkeAC&output=rss',
                            'http://finance.yahoo.com/rss/headline?s=CVX)'],
                company_Feed='$CVX')
@@ -103,6 +103,7 @@ PFE = RSSFeeds(url_Feed = ['https://finance.google.com/finance/company_news?q=NY
 PG = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:PG&ei=WKwtWuC_Co7DswHlyZD4CA&output=rss',
                         'http://finance.yahoo.com/rss/headline?s=PG'],
               company_Feed='$PG')
+
 TRV = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:TRV&ei=t6wtWsCmCNOQswHv2rTgBQ&output=rss',
                          'http://finance.yahoo.com/rss/headline?s=TRV'],
                company_Feed='$TRV')
