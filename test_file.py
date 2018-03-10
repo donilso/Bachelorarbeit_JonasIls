@@ -19,7 +19,7 @@ def write_articles(file_path, df):
 
 
 def drop_lines(dataframe):
-    df = dataframe.loc(len(dataframe['article']) >= 140 | 'Error accessing: ' not in dataframe['article'])
+    df = dataframe.loc('Error accessing: ' not in dataframe['article'])
     return df
 
 
@@ -69,9 +69,28 @@ def clean_text(content):
 
     return preprocess(content)
 
-df_news = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Cleaned_Newsfeed_$AXP.csv', sep='#')
+#df_news = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Cleaned_Newsfeed_$AXP.csv', sep='#')
+numbers = [1, 2, 3, 4, 5, 6]
+dfs = list()
+for n in numbers:
+    df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\dfsent_AAPL{}'.format(n), sep=',', encoding='utf-8')
+    dfs.append(df)
 
-re_time = r'\d\d:\d\d:\d\d, \d\d:\d\d:\d\d'
-            pattern_time = re.compile(re_time)
-            pattern_time = pattern_time.findall(line)
+df = pd.concat(dfs)
+df.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_AAPL', sep=',', encoding='utf-8')
 
+companies = ['$MSFT', '$MMM', '$AAPL',  '$AXP', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+companies = [company.replace('$', '') for company in companies]
+
+dfs = list()
+for company in companies:
+    print(company)
+    df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company), sep=',', encoding='utf-8')
+    df = df[['date', 'id', 'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot', 'SentimentLM', 'SentimentGI']]
+    print('Get TB...')
+    df['SentimentTB'] = df['text_clean'].apply(get_TBSentiment)
+    df.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company),sep=',', encoding='utf-8')
+    dfs.append(df)
+
+df = pd.concat(dfs)
+df.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_DfSent_AllStocks', sep=',', encoding='utf-8')

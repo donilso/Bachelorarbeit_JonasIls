@@ -20,7 +20,10 @@ def open_df_sent(company):
 
     df_tweets = df_tweets.fillna(0)
     df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
-    df_tweets['date'] = pd.to_datetime(df_tweets['date'])
+    df_tweets['date'] = pd.to_datetime(df_tweets['date'], errors='coerce')
+    print(len(df_tweets))
+    df_tweets = df_tweets.loc[df_tweets['date'] != 'NaT']
+    print(len(df_tweets))
     df_tweets['user_followers'] = df_tweets['user_followers'].astype(int)
 
     # adding sentiment calculated with textblob
@@ -72,6 +75,10 @@ def daily_yield(company, start, end):
     #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
     #calculating parks volatility
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
+    volume_dollar = df['Volume'] * df['Close']
+    rolling_mean = volume_dollar.rolling(window=21).mean()
+    rolling_std = volume_dollar.rolling(window=21).std()
+    df['volume_std'] = (volume_dollar - rolling_mean) / rolling_std
 
     # extract relevant time period
     df['Date'] = pd.to_datetime(df['Date'])
@@ -259,6 +266,13 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
     else:
         df_c2c = pd.DataFrame(daily_sentiments)
 
+    var_std = ['tweet_count', 'count_pos', 'count_neg']
+
+    for x in var_std:
+        mean = df_c2c['{}'.format(x)].mean()
+        std = df_c2c['{}'.format(x)].std()
+        df_c2c['{}_std'.format(x)] = ((df_c2c['{}'.format(x)]-mean) / std)
+
     return(df_c2c.set_index('date'))
 
 
@@ -316,7 +330,7 @@ def main_correlation_stockwise(list_of_companies, list_of_dicts, list_of_corr_va
 
 def main_correlation_allstocks(sentiment_dict, sent_min, vol_min):
     #df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
-    df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\SentimentGI\\20180217_DF_C2CSentimentGI_50vol_0sen.csv')
+    df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2CAllStocks_SentimentGI_50vol_0sen.csv')
 
     correlations = df_sentstock.corr()
 
@@ -413,7 +427,7 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
         # parse stock quotes
         df_stock = daily_yield(company, start, end)
 
-        tuple = (df_tweets, df_stock)
+        tuple = (df_tweets, df_stock, company)
 
         raw_data.append(tuple)
         print('Append {}'.format(company))
@@ -446,13 +460,14 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
                     # get close to close sentiments
                 df_c2cSent = close2close_sentiments(df_sent, sentiment_dict, df_stock, sent_min, vol_min, volume_filter=True, sentiment_filter=True)
                 df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2C{}_{}_{}vol_{}sen.csv'.format(tuple[2], sentiment_dict, vol_min, sent_min), encoding='utf-8')
                 dataframes_c2c.append(df_sentstock)
 
                 #except:
                 'Fuck Off'
 
             df_DJI = pd.concat(dataframes_c2c)
-            df_DJI.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\20180217_DF_C2C{}_{}vol_{}sen.csv'.format(sentiment_dict, vol_min, sent_min), encoding='utf-8')
+            df_DJI.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\All_Stocks\\20180101_20180217_C2CAllStocks_{}_{}vol_{}sen.csv'.format(sentiment_dict, vol_min, sent_min), encoding='utf-8')
 
             corr_SentYields['{}'.format(vol_min)] = sent_stock_corr(df_DJI, corr_var_sent, corr_var_stock)
             tc = df_DJI['tweet_count'].sum()
@@ -474,7 +489,6 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
         heatmap_days.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180217_HMDays_{}_{}.xls'.format(corr_var_stock, corr_var_sent), encoding='uft-8')
 
     else: 'Do Nothing'
-
     return(heatmap_corr)
 
 if __name__ == "__main__":
@@ -488,11 +502,7 @@ if __name__ == "__main__":
     list_of_dicts = [GI]
 
     # Define companies you'd like to analyze
-    companies = ['$MSFT', '$MMM', '$AXP', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-    #companies = ['$MSFT', '$MMM', '$AXP', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
-    #             '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
-    #             '$UTX', '$UNH', '$VZ', '$V', '$WMT']
-
+    companies = ['$MSFT', '$AAPL', '$MMM', '$AXP', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE','$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     companies = [company.replace('$', '') for company in companies]
 
     corr_var_stock = 'volatility_parks'
@@ -500,11 +510,13 @@ if __name__ == "__main__":
 
     filter = [0, 25, 50, 75]
 
-    #heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=True)
-    #print(heat_map)
+    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=GI, write=True)
+    print(heat_map)
 
-    main_correlation_allstocks(GI,  0, 50)
+
+    # main_correlation_allstocks(GI,  0, 50)
 
     #corr_matrix = main_correlation_stockwise(companies, list_of_dicts, [corr_var_sent], corr_var_stock, 0, 50, True, True)
     #print(corr_matrix)
+
 

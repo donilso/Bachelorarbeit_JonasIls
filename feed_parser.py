@@ -118,7 +118,7 @@ VZ = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:
               company_Feed='$VZ')
 V = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:V&ei=Fq0tWumSJsbIU_CyofgB&output=rss',
                        'http://finance.yahoo.com/rss/headline?s=V'],
-             company_Feed='V')
+             company_Feed='$V')
 WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE:WMT&ei=Mq0tWtD8L4KCsQH5jb3gCA&output=rss',
                          'http://finance.yahoo.com/rss/headline?s=WMT'],
                company_Feed='$WMT')
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         df_new = pd.DataFrame(feed).set_index('date')
         print(df_new)
         df_old = pd.read_csv(
-            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
+            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Feeds\\Newsfeed_{}.csv'.format(company.company_Feed),
             encoding="utf-8", index_col='date')
 
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         df_merged = df_merged.drop_duplicates(subset='link')
 
         df_merged.to_csv(
-            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
+            'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Feeds\\Newsfeed_{}.csv'.format(company.company_Feed),
             index_label='date', encoding="utf-8")
 
         #df_new.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
