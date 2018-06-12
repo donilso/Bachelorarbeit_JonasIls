@@ -11,14 +11,14 @@ end = datetime.datetime(2018, 3, 1)
 #             '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX',
 #             '$UNH', '$VZ', '$V', '$WMT', '^DJI']
 
-companies = ['^VIX']
+companies = ['^VXD']
 
 companies = [company.replace('$', '') for company in companies]
 
 for company in companies:
 
     try:
-        stockdata = web.DataReader(company, 'yahoo', start, end)
+        stockdata = web.DataReader(company, 'stooq', start, end)
         stockdata.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company), encoding='utf-8')
 
     except Exception as e:

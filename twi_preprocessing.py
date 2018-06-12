@@ -148,12 +148,13 @@ WMT = RSSFeeds(url_Feed=['https://finance.google.com/finance/company_news?q=NYSE
 def write_data(df, file_path_write, company):
     with open(file_path_write.format(company), 'a') as f:
         df.to_csv(f, sep='#', encoding='utf-8', index_label='date', header=False,
-                  columns=['date', 'id',  'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot'])
+                  columns=['date', 'id',  'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot', 'reference', 'symbols'])
+
 
 def write_data_one(df, file_path_write, company):
     with open(file_path_write.format(company), 'a') as f:
         df.to_csv(f, sep='#', encoding='utf-8', index_label='date', header=True,
-                  columns=['date', 'id', 'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot'])
+                  columns=['date', 'id', 'text_clean', 'time_adj', 'user_followers', 'retweet', 'timeslot', 'reference','symbols'])
 
 
 def word_in_text(text):
@@ -178,13 +179,14 @@ def clean_text(content):
         )"""
 
     RT_mentions_str = r'(?:RT @[\w_]+[:])'
+    mentions_str = r'(?:@[\w_])'
     url_str = r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+'
     html_str = r'<[^>]+>'
     hashtag_str = r"(?:\#+[\w_]+[\w\'_\-]*[\w_]+)"
     cashtag_str = r"(?:\$+[\w_]+[\w\'_\-]*[\w_]+)"
     non_ascii_str = r'[^\x00-\x7f]'
 
-    regex_remove = [url_str, html_str, emoticons_str, RT_mentions_str, non_ascii_str]
+    regex_remove = [url_str, html_str, emoticons_str, RT_mentions_str, non_ascii_str, mentions_str]
 
     regex_str = [
         r'(?:(?:\d+,?)+(?:\.?\d+)?)',  # numbers
@@ -221,6 +223,7 @@ def clean_text(content):
 
     return preprocess(content)
 
+
 def read_bigfile(file_path, file_path_write, function_call):
 
     companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
@@ -229,7 +232,7 @@ def read_bigfile(file_path, file_path_write, function_call):
     companies = [company.replace('$', '') for company in companies]
 
     print('Open File...')
-    with open(file_path) as tweets_file:
+    with open(file_path, encoding="utf-8") as tweets_file:
         counter = 0
         write_count = 0
         badtweets_counter = 0
@@ -240,15 +243,13 @@ def read_bigfile(file_path, file_path_write, function_call):
             try:
                 tweet = json.loads(line)
                 counter = counter + 1
-
                 tweets_data.append(tweet)
-                print('Line N. {}'.format(counter))
 
             except Exception as e:
                 print(e)
 
             if len(tweets_data) == 10000:
-
+                print("Tweet No. {}".format(counter))
                 analyzed_tweets = list()
 
                 for tweet in tweets_data:
@@ -305,16 +306,16 @@ def read_bigfile(file_path, file_path_write, function_call):
 
                         referenced_company = [x for x in companies if x in tweet_symbols]
 
-                        if referenced_company:
+                        if len(tweet_symbols) == 1:
                             parsed_tweet['reference'] = referenced_company
 
-                        for company in companies:
-                            if company in referenced_company:
-                                a = "True"
-                            else:
-                                a = "False"
+                            for company in companies:
+                                if company in referenced_company:
+                                    a = "True"
+                                else:
+                                    a = "False"
 
-                            parsed_tweet['xref_{}'.format(company)] = a
+                                parsed_tweet['xref_{}'.format(company)] = a
 
                         # identify retweets
                         RT_mentions_str = r'(?:RT @[\w_]+[:])'
@@ -332,7 +333,7 @@ def read_bigfile(file_path, file_path_write, function_call):
                         print(tweet)
                         print(e)
 
-                        with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a') as f:
+                        with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a', encoding="utf-8") as f:
                             f.write('{} for : {} \r\n'.format(e, tweet))
 
                         continue
@@ -417,16 +418,16 @@ def read_bigfile(file_path, file_path_write, function_call):
 
                 referenced_company = [x for x in companies if x in tweet_symbols]
 
-                if referenced_company:
+                if len(tweet_symbols) == 1:
                     parsed_tweet['reference'] = referenced_company
 
-                for company in companies:
-                    if company in referenced_company:
-                        a = "True"
-                    else:
-                        a = "False"
+                    for company in companies:
+                        if company in referenced_company:
+                            a = "True"
+                        else:
+                            a = "False"
 
-                    parsed_tweet['xref_{}'.format(company)] = a
+                        parsed_tweet['xref_{}'.format(company)] = a
 
                 # identify retweets
                 RT_mentions_str = r'(?:RT @[\w_]+[:])'
@@ -444,7 +445,7 @@ def read_bigfile(file_path, file_path_write, function_call):
                 print(tweet)
                 print(e)
 
-                with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a') as f:
+                with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180303_BadTweets', 'a', encoding="utf-8") as f:
                     f.write('{} for : {} \r\n'. format(e, tweet))
 
         df_tweets = pd.DataFrame(analyzed_tweets)
@@ -464,7 +465,8 @@ if __name__=='__main__':
     function_call = 0
     for file in files:
         file_path_read = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\Rohdaten\\{}'.format(file)
-        file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180101_20180217\\20180101_20180217_twitterstreaming_{}.csv'
+        file_path_write = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\spam_cleaned\\' \
+                          '20180101_20180217_twitterstreaming_{}.csv'
         function_call = function_call + 1
         read_bigfile(file_path_read, file_path_write, function_call)
 

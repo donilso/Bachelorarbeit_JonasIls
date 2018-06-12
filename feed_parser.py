@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
                 parsed_link['time_fetched'] = timestamp_fetched.time()
                 parsed_link['time_adj'] = timestamp_adj.time()
-                parsed_link['date'] =timestamp_adj.date()
+                parsed_link['date'] = timestamp_adj.date()
 
                 # classifying news
                 def to_integer(ts):
@@ -229,6 +229,5 @@ if __name__ == "__main__":
 
         #df_new.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeed_{}.csv'.format(company.company_Feed),
         #    index_label='date', encoding="utf-8")
-
         #print("DF Merged")
         print(len(df_merged))

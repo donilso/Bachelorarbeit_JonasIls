@@ -19,7 +19,7 @@ def open_df_sent(company):
     df_tweets['date'] = pd.to_datetime(df_tweets['date'])
 
     # adding sentiment calculated with textblob
-    df_tweets['SentimentTB'] = df_tweets['article_clean'].apply(get_TBSentiment)
+    # df_tweets['SentimentTB'] = df_tweets['article_clean'].apply(get_TBSentiment)
 
     return df_tweets
 
@@ -78,6 +78,34 @@ def daily_yield(company, start, end):
         end_index = df[df['Date'] == end].index.tolist()
 
     return df.loc[start_index[0]:end_index[0]].set_index('Date')
+
+
+def weekly_return(company):
+    df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
+
+    avg_price = (df_stock['High'] + df_stock['Low']) / 2
+    vol_dollar = df_stock['Volume'] * avg_price
+    vol_weekly = pd.rolling_sum(vol_dollar, window=7)
+    df_stock['vol_weekly_std'] = (vol_weekly - vol_weekly.mean())/vol_weekly.std()
+
+    df_stock['Date'] = pd.to_datetime(df_stock ['Date'])
+    df_stock['weekday'] = df_stock ['Date'].dt.dayofweek
+    df_stock = df_stock .loc[df_stock ['weekday'] == 4]
+    df_stock['cw'] = df_stock ['Date'].dt.week
+
+    df_index = get_df_index('DJI')
+    df_index['Date'] = pd.to_datetime(df_index['Date'])
+    df_index['weekday'] = df_index['Date'].dt.dayofweek
+    df_index = df_index.loc[df_index['weekday'] == 4]
+    df_index['cw'] = df_index['Date'].dt.week
+
+    df_stock['weekly_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
+    df_index['weekly_returns_index'] = df_index['Adj Close']/df_index['Adj Close'].shift(1)-1
+    df_stock = pd.concat([df_stock, df_index['weekly_returns_index']], axis=1)
+    df_stock['abnormal_returns'] = df_stock['weekly_returns']-df_stock['weekly_returns_index']
+
+    return df_stock
+
 
 
 # function to convert dates of typ sting to datetime format
@@ -156,7 +184,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, vol_mins):
 
         # number of articles
         sent_c2c['news_count'] = len(rows)
-        sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] >= 0])
+        sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
 
         # getting the ratio of positive and negative tweets
@@ -268,7 +296,7 @@ def main_aggregate_sentiments(companies, sentiment_dictionary, sent_min):
             return(df_c2c)
 
 
-def main_ct_analysis (sentiment_dictionary, percentile):
+def main_ct_analysis(sentiment_dictionary, percentile):
 
     companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM',
                  '$GE', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV',
@@ -314,6 +342,64 @@ def main_ct_analysis (sentiment_dictionary, percentile):
     return df
 
 
+def main_correlation_weekly(company, sent_dict):
+    #open df sent
+    df_sent = open_df_sent(company)
+
+    #c2c aggregation on weekly basis
+    df_sent['date'] = pd.to_datetime(df_sent['date'])
+    df_sent['weekday'] = df_sent['date'].dt.weekday
+    df_sent['cw'] = df_sent['date'].dt.week
+
+    weekly = []
+    for week in df_sent.cw.unique():
+        print(week)
+
+        # select tweets to extract for each week
+        rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])) |
+                                                       ((df_sent['weekday'] == 4) & (df_sent['timeslot'].isin(['before', 'during']))))) |
+                           ((df_sent['cw'] == week - 1) & ((df_sent['weekday'].isin([5, 6])) |
+                                                           ((df_sent['weekday'] == 4) & (df_sent['timeslot'] == 'after'))))]
+
+        rows['sent_w'] = rows['{}'.format(sent_dict)]*rows['user_followers']
+
+        # create dictionary to store aggregated sentiment metrics
+        sent_c2c = {}
+
+        sent_c2c['cw'] = week
+
+        # calculating volume metrics
+        sent_c2c['news_count'] = len(rows)
+        sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
+        sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
+
+        # calculating return an volatility metrics
+        sent_c2c['sent_mean'] = np.mean(rows[sent_dict])
+        sent_c2c['sent_std'] = np.std(rows[sent_dict])
+        sent_c2c['bullishness'] = np.log((1 + sent_c2c['count_pos']) / (1 + sent_c2c['count_neg']))
+        sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
+        sent_c2c['pol_neg'] = polarity(rows, sent_dict, False)
+        try:
+            sent_c2c['ratio_pos'] = (sent_c2c['count_pos'] / sent_c2c['tweet_count'])
+            sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
+            sent_c2c['agreement'] = 1 - (1 - ((sent_c2c['count_pos'] - sent_c2c['count_neg']) / (sent_c2c['count_pos'] + sent_c2c['count_neg'])) ** 2) ** 0.5
+        except Exception as e:
+            print("Error calculating c2c-Sentiment metrics:", e)
+
+        weekly.append(sent_c2c)
+
+    df_sent = pd.DataFrame(weekly).set_index('cw')
+
+    nc_mean = df_sent['news_count'].mean()
+    nc_std = df_sent['news_count'].std()
+    df_sent['news_count_std'] = (df_sent['news_count'] - nc_mean) / nc_std
+
+    df_stock = weekly_return(company)
+    df_stock = df_stock.loc[(df_stock.cw.isin(df_sent.index)) & (df_stock.Date.dt.year == 2018)].set_index('cw')
+
+    return pd.concat([df_sent, df_stock], axis=1)
+
+
 def c2c_allstocks(list_of_companies, vol_min, sentiment_dict):
     dataframes = []
 
@@ -323,7 +409,6 @@ def c2c_allstocks(list_of_companies, vol_min, sentiment_dict):
 
     df_DJI = pd.concat(dataframes)
     df_DJI.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_Allstocks_{}_{}vol'.format(sentiment_dict, vol_min), encoding='utf-8')
-
 
 
 if __name__ == "__main__":
@@ -337,37 +422,37 @@ if __name__ == "__main__":
     list_of_dicts = [GI]
 
     # Define companies you'd like to analyze
-    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GS', '$GE', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     companies = [company.replace('$', '') for company in companies]
 
     corr_var_stock = 'volatility_parks'
-    corr_var_sent = 'agreement'
+    corr_var_sent = 'sent_std'
 
     filter = [0, 25, 50, 75]
 
-    company = 'GE'
+    for company in companies:
+        df_tweets = open_df_sent(company)
+        # calculate timeperiod to parse stock quotes
+        start = date_start(df_tweets)
+        end = date_end(df_tweets)
+        # parse stock quotes
+        df_stock = daily_yield(company, start, end)
 
-    df_tweets = open_df_sent('GE')
-    # calculate timeperiod to parse stock quotes
-    start = date_start(df_tweets)
-    end = date_end(df_tweets)
-    # parse stock quotes
-    df_stock = daily_yield(company, start, end)
+        tuple = (df_tweets, df_stock, company)
 
-    tuple = (df_tweets, df_stock, company)
+        for vol_min in filter:
 
-    for vol_min in filter:
+            df_sent = tuple[0]
+            df_stock = tuple[1]
 
-        df_sent = tuple[0]
-        df_stock = tuple[1]
-
-        df_c2cSent = close2close_sentiments(df_sent, GI, df_stock, vol_min)
-        df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
-        df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(company, GI, vol_min), encoding='utf-8')
+            df_c2cSent = close2close_sentiments(df_sent, TB, df_stock, vol_min)
+            df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+            df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(company, GI, vol_min), encoding='utf-8')
 
 
     for f in filter:
         c2c_allstocks(companies, f, GI)
 
-    #main_correlation_allstocks(GI, 25)
+    #main_correlation_stockwise(companies, [GI], ['sent_mean','bullishness', 'pol_pos', 'pol_neg' ], 'abnormal_returns', 0)
+        main_correlation_allstocks(GI, f)
     #c2c_allstocks(companies, filter, GI)
