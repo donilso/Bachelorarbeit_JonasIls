@@ -459,12 +459,10 @@ def read_bigfile(file_path, file_path_write, function_call):
 if __name__=='__main__':
     #files = ['01_20180101twitter_streaming.json', '02_20180107twitter_streaming.json', '03_20180108twitter_streaming.json', '04_20180112twitter_streaming01.json','05_20180112twitter_streaming02.json', '06_20180112twitter_streaming03.json']
 
-    files = ['07_20180305_twitter_streaming.json', '08_20160401twitter_streaming.json']
+    files = ['07_20180305_twitter_streaming.json', '08_20180401_twitter_streaming.json']
     function_call = 0
     for file in files:
         file_path_read = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\Rohdaten\\{}'.format(file)
-        file_path_write = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180613\\' \
-                          '20180305_20180613_twitterstreaming_{}.csv'
+        file_path_write = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Feeds\\20180613\\20180305_20180613_twitterstreaming_{}.csv'
         function_call = function_call + 1
         read_bigfile(file_path_read, file_path_write, function_call)
-

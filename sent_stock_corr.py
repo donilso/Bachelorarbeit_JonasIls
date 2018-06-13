@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
-from textblob import TextBlob
+#from textblob import TextBlob
 import statsmodels.api as sm
 import math
 
@@ -14,7 +14,7 @@ def get_TBSentiment(text):
 
 
 def open_df_sent(company):
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\20180101_20180217_SentimentDataframes_{}'.format(company)
+    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
     df_tweets = df_tweets
 
@@ -55,6 +55,7 @@ def daily_yield(company, start, end):
 
     # calculating yields
     df_stock['daily_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
+    df_stock['daily_gap'] = df_stock['Open']/df_stock['Close'].shift(1)-1
     df_index = get_df_index('DJI')
 
     # contact dataframes
@@ -73,12 +74,11 @@ def daily_yield(company, start, end):
     df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
     df['beta'] = df.rolling_cov100 / df.rolling_varIndex100
     df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * df['beta']
-    #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
     #calculating parks volatility
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
     volume_dollar = df['Volume'] * df['Close']
-    rolling_mean = volume_dollar.rolling(window=21).mean()
-    rolling_std = volume_dollar.rolling(window=21).std()
+    rolling_mean = volume_dollar.rolling(window=120).mean()
+    rolling_std = volume_dollar.rolling(window=120).std()
     df['volume_std'] = (volume_dollar - rolling_mean) / rolling_std
 
     # extract relevant time period
@@ -219,14 +219,13 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
 
     for date in dates:
 
+        #dictionary to store aggregated metrics
         sent_c2c = {}
 
         # adding column of weighted sentiment depending on the followers count
-        #print(sent_dict)
         df_sent['sent_w'] = df_sent[sent_dict] * df_sent['user_followers']
 
         today = date.to_datetime()
-
         sent_c2c['date'] = today
 
         # defining timedeltas select c2c-rows
@@ -239,47 +238,62 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         # group tweets to c-2-c
         if today.weekday()!=0:
             yesterday = today - one_day
-            rows_today = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot.isin(['during', 'before']))]
-            rows_yesterday = df_sent.loc[(df_sent.date == yesterday) & (df_sent.timeslot == 'after')]
-            rows = pd.concat([rows_today, rows_yesterday])
+            rows_before = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot == 'before')]
+            rows_during = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot == 'during')]
+            rows_after = df_sent.loc[(df_sent.date == yesterday) & (df_sent.timeslot == 'after')]
+            rows = pd.concat([rows_before, rows_during, rows_after])
 
         else:
             weekend = [today - one_day, today - two_days]
-            rows_today = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot.isin(['during', 'before']))]
-            rows_weekend = df_sent.loc[(df_sent.date.isin(weekend)) | ((df_sent.date == today - three_days) & (df_sent.timeslot == 'after'))]
-            rows = pd.concat([rows_today, rows_weekend])
+            rows_before = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot == 'before')]
+            rows_during = df_sent.loc[(df_sent.date == today) & (df_sent.timeslot == 'during')]
+            rows_after = df_sent.loc[(df_sent.date.isin(weekend)) | ((df_sent.date == today - three_days) & (df_sent.timeslot == 'after'))]
+            rows = pd.concat([rows_before, rows_during, rows_after])
 
         sent_c2c['tweet_count_unfiltered'] = len(rows)
 
         if sentiment_filter:
             rows = threshold_sentiment(rows, sent_dict, sent_mins)
-
         else:
             rows = rows
 
         # calculating positive and negative polarity (weighted average)
-        sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
-        sent_c2c['pol_neg'] = polarity(rows, sent_dict, False)
+        #sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
+        #sent_c2c['pol_neg'] = polarity(rows, sent_dict, False)
 
         # calculating the c-2-c-sentiment
         sent_c2c['sent_mean'] = np.mean(rows[sent_dict])
         sent_c2c['sent_std'] = np.std(rows[sent_dict])
 
-        # getting the number of tweets, positive tweets as well as negative tweets
+        # getting the number of tweets, positive tweets as well as negative tweets,
+        # for the whole day and for each time slot
         sent_c2c['tweet_count'] = len(rows)
         sent_c2c['tweet_count_w'] = rows['user_followers'].sum()
+        sent_c2c['tweet_count_w_b'] = rows_before['user_followers'].sum()
+        sent_c2c['tweet_count_w_d'] = rows_during['user_followers'].sum()
+        sent_c2c['tweet_count_w_a'] = rows_after['user_followers'].sum()
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
         sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] > 0]['user_followers'].sum()
         sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
+        sent_c2c['count_pos_b'] = len(rows_before.loc[rows[sent_dict] > 0])
+        sent_c2c['count_neg_b'] = len(rows_before.loc[rows[sent_dict] < 0])
+        sent_c2c['count_pos_a'] = len(rows_after.loc[rows[sent_dict] > 0])
+        sent_c2c['count_neg_a'] = len(rows_after.loc[rows[sent_dict] < 0])
+        sent_c2c['count_pos_d'] = len(rows_during.loc[rows[sent_dict] > 0])
+        sent_c2c['count_neg_d'] = len(rows_during.loc[rows[sent_dict] < 0])
 
         # getting the ratio of positive and negative tweets
         try:
-            sent_c2c['ratio_pos'] = (sent_c2c['count_pos'] / sent_c2c['tweet_count'])
-            sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
-            sent_c2c['ratio_pos_w'] = sent_c2c['count_pos_w'] / sent_c2c['tweet_count_w']
-            sent_c2c['ratio_neg_w'] = sent_c2c['count_neg_w'] / sent_c2c['tweet_count_w']
+            #sent_c2c['ratio_pos'] = (sent_c2c['count_pos'] / sent_c2c['tweet_count'])
+            #sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
+            #sent_c2c['ratio_pos_w'] = sent_c2c['count_pos_w'] / sent_c2c['tweet_count_w']
+            #sent_c2c['ratio_neg_w'] = sent_c2c['count_neg_w'] / sent_c2c['tweet_count_w']
             sent_c2c['bullishness'] = np.log((1+sent_c2c['count_pos'])/(1+sent_c2c['count_neg']))
+            sent_c2c['bullishness_b'] = np.log((1+sent_c2c['count_pos_b'])/(1+sent_c2c['count_neg_b']))
+            sent_c2c['bullishness_a'] = np.log((1+sent_c2c['count_pos_a'])/(1+sent_c2c['count_neg_a']))
+            sent_c2c['bullishness_d'] = np.log((1+sent_c2c['count_pos_d'])/(1+sent_c2c['count_neg_d']))
+
             sent_c2c['agreement'] = 1 - (1 - ((sent_c2c['count_pos'] - sent_c2c['count_neg'])/(sent_c2c['count_pos'] + sent_c2c['count_neg'])) ** 2) ** 0.5
 
         except Exception as e:
@@ -287,6 +301,9 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
 
         # calculating the c-2-c-sentiment depending on the followers
         sent_c2c['sent_mean_w'] = rows['sent_w'].sum() / sent_c2c['tweet_count_w']
+        sent_c2c['sent_mean_w_b'] = rows_before['sent_w'].sum() / sent_c2c['tweet_count_w_b']
+        sent_c2c['sent_mean_w_d'] = rows_during['sent_w'].sum() / sent_c2c['tweet_count_w_d']
+        sent_c2c['sent_mean_w_a'] = rows_after['sent_w'].sum() / sent_c2c['tweet_count_w_a']
 
         daily_sentiments.append(sent_c2c)
 
@@ -619,7 +636,6 @@ if __name__ == "__main__":
     list_of_dicts = [GI, LM, HE]
 
     # Define companies you'd like to analyze
-    #!!!!!! APPLE FEHLT !!!!!!!
     companies = ['$AAPL', '$MSFT', '$MMM', '$AXP', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GE','$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     #companies = ['BA']
     companies = [company.replace('$', '') for company in companies]
@@ -647,7 +663,7 @@ if __name__ == "__main__":
     #    print(company)
     #    df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}'.format(company, GI, 0, 0), encoding='utf-8')
     #    print(df)
-#        df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\20180101_20180217_SentimentDataframes_{}'.format(company), encoding='utf-8')
+#        df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company), encoding='utf-8')
 #        df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company), encoding='utf-8')
 
 #        dfs.append(df)
