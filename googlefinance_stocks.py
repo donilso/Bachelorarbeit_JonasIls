@@ -19,7 +19,8 @@ for company in companies:
 
     try:
         stockdata = web.DataReader(company, 'stooq', start, end)
-        stockdata.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company), encoding='utf-8')
+        print(stockdata)
+        #stockdata.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company), encoding='utf-8')
 
     except Exception as e:
         print(company, ":", e)
