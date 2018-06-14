@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
-import pandas_datareader.data as web
-from datetime import datetime, timedelta
-#from textblob import TextBlob
+from datetime import datetime, timedelta, date
 import statsmodels.api as sm
 import math
+
 
 def get_TBSentiment(text):
     '''Function to calculate a sentiment score based on the textblob library'''
@@ -14,7 +13,7 @@ def get_TBSentiment(text):
 
 
 def open_df_sent(company):
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
     df_tweets = df_tweets
 
@@ -41,8 +40,8 @@ def date_end(df_sent):
 
 
 def get_df_index(index):
-    df_index = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_^{}.csv'.format(index), encoding='utf-8')
-    df_index['daily_returns_index'] = df_index['Adj Close'] / df_index['Adj Close'].shift(1) - 1
+    df_index = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(index), encoding='utf-8')
+    df_index['daily_returns_index'] = df_index['Close'] / df_index['Close'].shift(1) - 1
     return df_index
 
 
@@ -50,35 +49,41 @@ def daily_yield(company, start, end):
     '''Function to parse daily stock quotes and calculate daily yields'''
 
     # parsing stockdata
-    df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
+    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(company))
 
 
     # calculating yields
-    df_stock['daily_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
-    df_stock['daily_gap'] = df_stock['Open']/df_stock['Close'].shift(1)-1
-    df_index = get_df_index('DJI')
+    df_stock['daily_returns'] = df_stock['Close']/df_stock['Close'].shift(1)-1
+    df_stock['daily_gap'] = df_stock['Close']/df_stock['Close'].shift(1)-1
+    df_index = get_df_index('DIA')
 
     # contact dataframes
     df = pd.concat([df_stock, df_index['daily_returns_index']], axis=1)
 
     # calculating abnormal returns
-    #df = df.drop(df.index[0])
+    '''Alternative One: Calculating ols regressed abnormal returns manually over variances and covariance of the variables'''
+    #df.rolling_cov100 = pd.rolling_cov(arg1=df.daily_returns, arg2=df.daily_returns_index, window=100, min_periods=100)
+    #df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
+    #beta = df.rolling_cov100 / df.rolling_varIndex100
+    #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * beta
 
-    #model = pd.stats.ols.MovingOLS(y=df.daily_returns, x=df.daily_returns_index, window_type='rolling', window=100, intercept=True)
-    #def model(endog):
-    #    model = sm.OLS(endog=endog, exog=df.daily_returns_index, window=100).fit()
-    #    return(model.params)
-    #df['beta'] = pd.rolling_apply(df.daily_returns, window=100, func=model(df['daily_returns']))
+    '''Alternative Two: Calculating ols regressed abnormal returns over the rolling ols module of pandas'''
+    #model = pd.stats.ols.MovingOLS(y=df.daily_returns, x=df.daily_returns_index,
+    #                               window_type='rolling', window=100, intercept=True)
+    #returns_est = model.y_predict
+    #df['abnormal_returns'] = df['daily_returns'] - returns_est
 
-    df.rolling_cov100 = pd.rolling_cov(arg1=df.daily_returns, arg2=df.daily_returns_index, window=100, min_periods=100)
-    df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
-    df['beta'] = df.rolling_cov100 / df.rolling_varIndex100
-    df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * df['beta']
+    '''Alternative Three: since these freakin dickheads seem to depricate every fucking method that ever made pandas a great module
+    we have to use a much simpler and also quite shitty approach of calculating abnormal returns. No ols regressed abnormal return
+    just a simple subtraction of the daily index return. FUCK OFF, WHY THE HACK ONE WEEK BEFORE I HAVE TO FUCKING FINISH THIS THESIS?
+    WHY?'''
+    df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
+
     #calculating parks volatility
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
-    volume_dollar = df['Volume'] * df['Close']
-    rolling_mean = volume_dollar.rolling(window=120).mean()
-    rolling_std = volume_dollar.rolling(window=120).std()
+    volume_dollar = df['Volume'] * df['Open']
+    rolling_mean = volume_dollar.rolling(window=100).mean()
+    rolling_std = volume_dollar.rolling(window=100).std()
     df['volume_std'] = (volume_dollar - rolling_mean) / rolling_std
 
     # extract relevant time period
@@ -99,11 +104,13 @@ def daily_yield(company, start, end):
 
 
 def weekly_return(company):
-    df_stock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
+    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(company))
+    df_index = get_df_index('DIA')
+    df_stock['Close_Index'] = df_index['Close']
 
     avg_price = (df_stock['High'] + df_stock['Low']) / 2
     vol_dollar = df_stock['Volume'] * avg_price
-    vol_weekly = pd.rolling_sum(vol_dollar, window=7)
+    vol_weekly = vol_dollar.rolling(window=7).sum()
     df_stock['vol_weekly_std'] = (vol_weekly - vol_weekly.mean())/vol_weekly.std()
 
     df_stock['Date'] = pd.to_datetime(df_stock ['Date'])
@@ -111,14 +118,14 @@ def weekly_return(company):
     df_stock = df_stock .loc[df_stock ['weekday'] == 4]
     df_stock['cw'] = df_stock ['Date'].dt.week
 
-    df_index = get_df_index('DJI')
-    df_index['Date'] = pd.to_datetime(df_index['Date'])
-    df_index['weekday'] = df_index['Date'].dt.dayofweek
-    df_index = df_index.loc[df_index['weekday'] == 4]
-    df_index['cw'] = df_index['Date'].dt.week
+    #df_index = get_df_index('DIA')
+    #df_index['Date'] = pd.to_datetime(df_index['Date'])
+    #df_index['weekday'] = df_index['Date'].dt.dayofweek
+    #df_index = df_index.loc[df_index['weekday'] == 4]
+    #df_index['cw'] = df_index['Date'].dt.week
 
-    df_stock['weekly_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
-    df_index['weekly_returns_index'] = df_index['Adj Close']/df_index['Adj Close'].shift(1)-1
+    df_stock['weekly_returns'] = df_stock['Close']/df_stock['Close'].shift(1)-1
+    df_stock['weekly_returns_index'] = df_stock['Close_Index']/df_stock['Close_Index'].shift(1)-1
     df_stock = pd.concat([df_stock, df_index['weekly_returns_index']], axis=1)
     df_stock['abnormal_returns'] = df_stock['weekly_returns']-df_stock['weekly_returns_index']
 
@@ -211,21 +218,19 @@ def threshold_tweetcount(c2c_sent, percentile):
 
 
 def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, volume_filter, sentiment_filter):
-    '''Untility function to create aggregatet sentiment metrics (c-2-c) and to merge them with daily stock quotes'''
+    '''Utility function to create aggregatet sentiment metrics (c-2-c) and to merge them with daily stock quotes'''
 
     daily_sentiments = []
-    df_stock.index = df_stock.index.to_datetime()
+    df_stock.index = pd.to_datetime(df_stock.index)
     dates = df_stock.index  # dates to search for in tweets dataframe
 
-    for date in dates:
+    for today in dates:
 
         #dictionary to store aggregated metrics
         sent_c2c = {}
 
         # adding column of weighted sentiment depending on the followers count
         df_sent['sent_w'] = df_sent[sent_dict] * df_sent['user_followers']
-
-        today = date.to_datetime()
         sent_c2c['date'] = today
 
         # defining timedeltas select c2c-rows
@@ -275,7 +280,9 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
         sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] > 0]['user_followers'].sum()
+        sent_c2c['count_pos_w_d'] = rows_during.loc[rows[sent_dict] > 0]['user_followers'].sum()
         sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
+        sent_c2c['count_neg_w_d'] = rows_during.loc[rows[sent_dict] < 0]['user_followers'].sum()
         sent_c2c['count_pos_b'] = len(rows_before.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg_b'] = len(rows_before.loc[rows[sent_dict] < 0])
         sent_c2c['count_pos_a'] = len(rows_after.loc[rows[sent_dict] > 0])
@@ -289,10 +296,20 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
             #sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['tweet_count']
             #sent_c2c['ratio_pos_w'] = sent_c2c['count_pos_w'] / sent_c2c['tweet_count_w']
             #sent_c2c['ratio_neg_w'] = sent_c2c['count_neg_w'] / sent_c2c['tweet_count_w']
-            sent_c2c['bullishness'] = np.log((1+sent_c2c['count_pos'])/(1+sent_c2c['count_neg']))
+            sent_c2c['bullishness'] = np.log((1 + sent_c2c['count_pos']) / (1 + sent_c2c['count_neg']))
+            sent_c2c['bullishness_w'] = np.log((1+sent_c2c['count_pos_w'])/(1+sent_c2c['count_neg_w']))
+            sent_c2c['bullishness_w_d'] = np.log((1+sent_c2c['count_pos_w_d'])/(1+sent_c2c['count_neg_w_d']))
             sent_c2c['bullishness_b'] = np.log((1+sent_c2c['count_pos_b'])/(1+sent_c2c['count_neg_b']))
             sent_c2c['bullishness_a'] = np.log((1+sent_c2c['count_pos_a'])/(1+sent_c2c['count_neg_a']))
             sent_c2c['bullishness_d'] = np.log((1+sent_c2c['count_pos_d'])/(1+sent_c2c['count_neg_d']))
+
+
+            sent_c2c['bearishness'] = np.log((1+sent_c2c['count_neg'])/(1+sent_c2c['count_pos']))
+            sent_c2c['bearishness_w'] = np.log((1+sent_c2c['count_neg_w'])/(1+sent_c2c['count_pos_w']))
+            sent_c2c['bearishness_w_d'] = np.log((1+sent_c2c['count_neg_w_d'])/(1+sent_c2c['count_pos_w_d']))
+            sent_c2c['bearishness_b'] = np.log((1+sent_c2c['count_neg_b'])/(1+sent_c2c['count_pos_b']))
+            sent_c2c['bearishness_a'] = np.log((1+sent_c2c['count_neg_a'])/(1+sent_c2c['count_pos_a']))
+            sent_c2c['bearishness_d'] = np.log((1+sent_c2c['count_neg_d'])/(1+sent_c2c['count_pos_d']))
 
             sent_c2c['agreement'] = 1 - (1 - ((sent_c2c['count_pos'] - sent_c2c['count_neg'])/(sent_c2c['count_pos'] + sent_c2c['count_neg'])) ** 2) ** 0.5
 
@@ -351,11 +368,18 @@ def main_correlation_stockwise(list_of_companies, list_of_dicts, list_of_corr_va
                 df_stock = daily_yield(company, start, end)
 
                 bad_days = ['2018-01-04', '2018-01-03', '2018-01-02', '2018-01-01', '2018-01-25', '2018-01-26',
-                            '2018-01-27',
-                            '2018-02-02', '2018-02-03', '2018-02-06', '2018-02-10']
+                            '2018-01-27', '2018-02-02', '2018-02-03', '2018-02-06', '2018-02-10', '2018-03-29',
+                            '2018-04-01', '2018-04-10']
+
+                # deleting gap in stream from 20th Feb. till the 16th of March
+                d1 = date(2018, 2, 20)  # start date
+                d2 = date(2018, 3, 16)  # end date
+                delta = d2 - d1  # timedelta
+
+                for i in range(delta.days + 1):
+                    bad_days.append(str(d1 + timedelta(i)))
 
                 df_stock.index = df_stock.index.astype(str)
-                print(len(df_stock))
 
                 for bad_day in bad_days:
                     try:
@@ -363,12 +387,10 @@ def main_correlation_stockwise(list_of_companies, list_of_dicts, list_of_corr_va
                     except Exception as e:
                         print(e)
 
-                print(len(df_stock))
-
                 # get close to close sentiments
                 df_c2cSent = close2close_sentiments(df_tweets, sentiment_dict, df_stock, sent_min, percentile_tweetcount, volume_filter, sentiment_filter)
                 df_c2cSent = pd.concat([df_c2cSent, df_stock], axis=1)
-                df_c2cSent.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}'.format(company,sentiment_dict, percentile_tweetcount, sent_min), encoding='utf-8', index_label='date')
+                df_c2cSent.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company,sentiment_dict, percentile_tweetcount, sent_min), encoding='utf-8', index_label='date')
 
                 # crate correlation dataframe
                 corr_SentYields = {}
@@ -386,7 +408,7 @@ def main_correlation_stockwise(list_of_companies, list_of_dicts, list_of_corr_va
 
         df_corr = pd.DataFrame(correlations).set_index('company')
 
-        file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Stockwise\\spamcleaned_20180303_Corr{}_{}_Vol{}_Sent{}.xls'.format(sentiment_dict, corr_var_stock, percentile_tweetcount, sent_min)
+        file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Stockwise\\20180101_20180410_Corr{}_{}_Vol{}_Sent{}.xls'.format(sentiment_dict, corr_var_stock, percentile_tweetcount, sent_min)
         df_corr.to_excel(file_path, encoding='utf-8')
 
 
@@ -399,15 +421,18 @@ def main_correlation_weekly(company, sent_dict):
     df_sent['weekday'] = df_sent['date'].dt.weekday
     df_sent['cw'] = df_sent['date'].dt.week
 
-    weekly = []
-    for week in df_sent.cw.unique():
-        print(week)
+    #define relevant weeks (week one and 15 are dropped, since there is only one day of data for this week
+    weeks = df_sent.cw.unique()
+    weeks = [x for x in weeks if x not in [1, 15]]
 
+    weekly = []
+    for week in weeks:
+        print(week)
         # select tweets to extract for each week
-        rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])) |
-                                                       ((df_sent['weekday'] == 4) & (df_sent['timeslot'].isin(['before', 'during']))))) |
-                           ((df_sent['cw'] == week - 1) & ((df_sent['weekday'].isin([5, 6])) |
-                                                           ((df_sent['weekday'] == 4) & (df_sent['timeslot'] == 'after'))))]
+        rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])))) |
+                            ((df_sent['cw'] == week) &((df_sent['weekday'] == 4) & (df_sent['timeslot'].isin(['before', 'during'])))) |
+                           ((df_sent['cw'] == week - 1) & (df_sent['weekday'].isin([5, 6]))) |
+                            ((df_sent['cw'] == week - 1) & ((df_sent['weekday'] == 4) & (df_sent['timeslot'] == 'after')))]
 
         rows['sent_w'] = rows['{}'.format(sent_dict)]*rows['user_followers']
 
@@ -460,13 +485,13 @@ def main_correlation_weekly(company, sent_dict):
 
 
 def main_correlation_allstocks(sentiment_dict, sent_min, vol_min):
-    #df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
-    df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2CAllStocks_{}_{}vol_{}sen.csv'.format(sentiment_dict, vol_min, sent_min))
-    #df_sentstock = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\')
+    #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
+    df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410AllStocks_{}_Vol{}_Sent{}'.format(sentiment_dict, vol_min, sent_min))
+    #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\')
 
     correlations = df_sentstock.corr()
 
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180217_CorrAllStocks{}_{}Vol_{}Sent.xls'.format(sentiment_dict, vol_min, sent_min)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_CorrAllStocks{}_{}Vol_{}Sent.xls'.format(sentiment_dict, vol_min, sent_min)
     correlations.to_excel(file_path, encoding='uft-8')
     return correlations
 
@@ -543,7 +568,7 @@ def main_ct_analysis (sentiment_dictionary, percentile):
     df = pd.concat([filter_off, filter_sentiment_on, filter_volume_on, filter_on])
     df['Mode'] = np.asarray(['no_filter', 'sentiment_filter', 'volume_filter', 'both'])
 
-    df.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CP_{}{}.xls'.format(sentiment_dictionary, sent_min))
+    df.to_excel('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\24012018_CP_{}{}.xls'.format(sentiment_dictionary, sent_min))
 
     return df
 
@@ -558,6 +583,27 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
         end = date_end(df_tweets)
         # parse stock quotes
         df_stock = daily_yield(company, start, end)
+
+        bad_days = ['2018-01-04', '2018-01-03', '2018-01-02', '2018-01-01', '2018-01-25', '2018-01-26',
+                    '2018-01-27', '2018-02-02', '2018-02-03', '2018-02-06', '2018-02-10', '2018-03-29',
+                    '2018-04-01', '2018-04-10']
+
+        # deleting gap in stream from 20th Feb. till the 16th of March
+        d1 = date(2018, 2, 20)  # start date
+        d2 = date(2018, 3, 16)  # end date
+        delta = d2 - d1  # timedelta
+
+        for i in range(delta.days + 1):
+            bad_days.append(str(d1 + timedelta(i)))
+
+        df_stock.index = df_stock.index.astype(str)
+        print(len(df_stock))
+
+        for bad_day in bad_days:
+            try:
+                df_stock = df_stock.drop(bad_day)
+            except Exception as e:
+                print(e)
 
         tuple = (df_tweets, df_stock, company)
 
@@ -593,14 +639,14 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
                     # get close to close sentiments
                 df_c2cSent = close2close_sentiments(df_sent, sentiment_dict, df_stock, sent_min, vol_min, volume_filter=True, sentiment_filter=True)
                 df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
-                #df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\C2C_Dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}.csv'.format(tuple[2], sentiment_dict, vol_min, sent_min), encoding='utf-8')
+                #df_sentstock.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\C2C_Dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}.csv'.format(tuple[2], sentiment_dict, vol_min, sent_min), encoding='utf-8')
                 dataframes_c2c.append(df_sentstock)
 
                 #except:
                 'Fuck Off'
 
             df_DJI = pd.concat(dataframes_c2c)
-            #df_DJI.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\C2C_Dataframes\\c2c_spamcleanedAllStocks_{}_Vol{}_Sent{}.csv'.format(sentiment_dict, vol_min, sent_min), encoding='utf-8')
+            #df_DJI.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\C2C_Dataframes\\c2c_spamcleanedAllStocks_{}_Vol{}_Sent{}.csv'.format(sentiment_dict, vol_min, sent_min), encoding='utf-8')
 
             corr_SentYields['{}'.format(vol_min)] = sent_stock_corr(df_DJI, corr_var_sent, corr_var_stock)
             tc = df_DJI['tweet_count'].sum()
@@ -617,16 +663,15 @@ def main(corr_var_stock, corr_var_sent, list_of_companies, sent_mins, vol_mins, 
     heatmap_days = pd.DataFrame(byfilter_days)
 
     if write == True:
-        heatmap_corr.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180217spamfree{}_HMCorr_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
-        heatmap_tweets.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180217spamfree{}_HMTweets_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
-        heatmap_days.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180217spamfree{}_HMDays_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
+        heatmap_corr.to_excel('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\20180410{}_HMCorr_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
+        heatmap_tweets.to_excel('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\220180410{}_HMTweets_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
+        heatmap_days.to_excel('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\Heat_Maps\\220180410{}_HMDays_{}_{}.xls'.format(sentiment_dict, corr_var_stock, corr_var_sent), encoding='uft-8')
 
     else: 'Do Nothing'
     return(heatmap_corr)
 
 
 if __name__ == "__main__":
-    df_index = get_df_index('DJI')
 
     LM = 'SentimentLM'
     GI = 'SentimentGI'
@@ -646,54 +691,52 @@ if __name__ == "__main__":
 
     filter = [0, 25, 50, 75]
 
-#df_stock = weekly_return('AAPL')
-#x = df_stock.Date.dt.year
-#print(x)
-#print(df_stock.loc[df_stock.Date.dt.year == 2018])
+    main('bullishness_d', 'abnormal_returns', companies, filter, filter, HE, True)
 
-    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=HE, write=True)
-    print(heat_map)
-    heat_map = main(corr_var_stock=corr_var_stock, corr_var_sent=corr_var_sent, list_of_companies=companies, sent_mins=filter, vol_mins=filter, sentiment_dict=LM, write=True)
-    print(heat_map)
+df_sent_allstocks = pd.concat(l)
+print(len(df_sent_allstocks))
+print(len(df_sent_allstocks.date.unique()))
 
-    #corr_matrix = main_correlation_stockwise(companies, list_of_dicts,  corr_var_sent, corr_var_stock, 0, 0, False, False)
+file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'
 
-    #dfs = []
-    #for company in companies:
-    #    print(company)
-    #    df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}'.format(company, GI, 0, 0), encoding='utf-8')
-    #    print(df)
-#        df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company), encoding='utf-8')
-#        df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company), encoding='utf-8')
+print(list('AAPL'))
 
-#        dfs.append(df)
-    #df = pd.concat(dfs)
-    #df = df.text_clean.sample(100)
-    #df.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\c2c_spamcleanedAllStocks_{}_Vol{}_Sent{}'.format(HE, 0, 0))
-    #df.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\sample_spamfree.xls')
-    #df = pd.read_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\c2c_spamcleanedAllStocks_{}_Vol{}_Sent{}'.format(HE, 0, 0))
-    #correlations = df.corr()
-    #correlations.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\spamcleaned_CorrAllStocks{}_{}Vol_{}Sent.xls'.format(HE, 0, 0))
-    #main_correlation_allstocks(HE, 0, 0)
-    #all = len(df)
-    #treffer_pos = len(df.loc[(df['bullishness'] > 0) & (df['daily_returns'] > 0)])
-    #treffer_neg = len(df.loc[(df['bullishness'] < 0) & (df['daily_returns'] < 0)])
-    #accurracy = (treffer_neg + treffer_pos) / all
-    #print(accurracy)
+main_correlation_stockwise(list_of_companies= companies,
+                           list_of_dicts = [HE, LM, GI],
+                           list_of_corr_var_sent = ['bullishness_a', 'bullishness_d', 'bullishness_b', 'bullishness', 'bullishness_w_d',
+                                                    'bearishness_a', 'bearishness_d', 'bearishness_b', 'bearishness', 'bearishness_w_d',
+                            'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
+                           corr_var_stock= 'abnormal_returns',
+                           percentile_tweetcount=0,
+                           sent_min=0,
+                           sentiment_filter=False,
+                           volume_filter=False)
 
-    #correlations = df.corr()
-    #file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\spamcleaned_CorrAllStocks{}_{}Vol_{}Sent.xls'.format(LM, 25, 0)
-    #correlations.to_excel(file_path, encoding='uft-8')
+l = list()
+for company in companies:
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, GI, 0, 0)
+    df = pd.read_csv(file_path, encoding='utf-8')
+    l.append(df)
 
-    dfs = []
-    for company in companies:
-        print(company)
-        df = main_correlation_weekly(company, HE)
-        dfs.append(df)
+df = pd.concat(l)
+df.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format('AllStocks', GI, 0, 0))
+main_correlation_allstocks(GI, 0, 0)
 
-    df = pd.concat(dfs)
-    df = df.corr()
 
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180217_CorrAllStocks{}_Weekly.xls'.format(HE)
+main('bullishness_d', 'abnormal_returns', companies, filter, filter, HE, True)
 
-    df.to_excel(file_path, encoding='utf-8')
+file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(
+    'AAPL', HE, 0, 0)
+
+df = pd.read_csv(file_path)
+df.date = pd.to_datetime(df.date)
+df['cw']=df['date'].dt.week
+
+l = list()
+for company in companies:
+    df_weekly = main_correlation_weekly(company, HE)
+    l.append(df_weekly)
+
+file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_CorrAllStocks{}_weekly.xls'.format(HE)
+df_weekly = df_weekly.corr()
+df_weekly.to_excel(file_path, encoding='utf-8')
