@@ -164,13 +164,15 @@ def polarity(dataframe, sent_dict, pol):
 def threshold_sentiment(df_sent, sent_dict, percentile):
     #print("DF SENT FOR THRESHOLD:", len(df_sent))
 
+    # lists to store all neg / pos sentiment scores
     values_neg = []
     values_pos = []
-
+    # counter to track the number of 0-Sentiments
     null_counter = 0
 
+    # iterating over the tweets
     for index, tweet in df_sent.iterrows():
-        sent = tweet['{}'.format(sent_dict)]
+        sent = tweet[sent_dict]
 
         if sent < 0:
             values_neg.append(sent)
@@ -185,16 +187,17 @@ def threshold_sentiment(df_sent, sent_dict, percentile):
 
     tweets_count = len(values_neg + values_pos)
 
+    # allocating 0-Sentiments based on the ratio of pos/neg tweets
     try: ratio_neg = len(values_neg) / tweets_count
     except: ratio_neg = 0
     try: ratio_pos = len(values_pos) / tweets_count
     except: ratio_pos = 0
-
     zero_neg = round(ratio_neg * null_counter)
     zero_pos = round(ratio_pos * null_counter)
     values_neg = values_neg + ([0]*zero_neg)
     values_pos = values_pos + ([0]*zero_pos)
 
+    # calculating the minimal sentiment based on the percentile given
     try:
         sent_min_pos = np.percentile(values_pos, percentile)
     except:
@@ -280,15 +283,15 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
         sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] > 0]['user_followers'].sum()
-        sent_c2c['count_pos_w_d'] = rows_during.loc[rows[sent_dict] > 0]['user_followers'].sum()
+        sent_c2c['count_pos_w_d'] = rows_during.loc[rows_during[sent_dict] > 0]['user_followers'].sum()
         sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
-        sent_c2c['count_neg_w_d'] = rows_during.loc[rows[sent_dict] < 0]['user_followers'].sum()
-        sent_c2c['count_pos_b'] = len(rows_before.loc[rows[sent_dict] > 0])
-        sent_c2c['count_neg_b'] = len(rows_before.loc[rows[sent_dict] < 0])
-        sent_c2c['count_pos_a'] = len(rows_after.loc[rows[sent_dict] > 0])
-        sent_c2c['count_neg_a'] = len(rows_after.loc[rows[sent_dict] < 0])
-        sent_c2c['count_pos_d'] = len(rows_during.loc[rows[sent_dict] > 0])
-        sent_c2c['count_neg_d'] = len(rows_during.loc[rows[sent_dict] < 0])
+        sent_c2c['count_neg_w_d'] = rows_during.loc[rows_during[sent_dict] < 0]['user_followers'].sum()
+        sent_c2c['count_pos_b'] = len(rows_before.loc[rows_before[sent_dict] > 0])
+        sent_c2c['count_neg_b'] = len(rows_before.loc[rows_before[sent_dict] < 0])
+        sent_c2c['count_pos_a'] = len(rows_after.loc[rows_after[sent_dict] > 0])
+        sent_c2c['count_neg_a'] = len(rows_after.loc[rows_after[sent_dict] < 0])
+        sent_c2c['count_pos_d'] = len(rows_during.loc[rows_during[sent_dict] > 0])
+        sent_c2c['count_neg_d'] = len(rows_during.loc[rows_during[sent_dict] < 0])
 
         # getting the ratio of positive and negative tweets
         try:
@@ -302,14 +305,6 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
             sent_c2c['bullishness_b'] = np.log((1+sent_c2c['count_pos_b'])/(1+sent_c2c['count_neg_b']))
             sent_c2c['bullishness_a'] = np.log((1+sent_c2c['count_pos_a'])/(1+sent_c2c['count_neg_a']))
             sent_c2c['bullishness_d'] = np.log((1+sent_c2c['count_pos_d'])/(1+sent_c2c['count_neg_d']))
-
-
-            sent_c2c['bearishness'] = np.log((1+sent_c2c['count_neg'])/(1+sent_c2c['count_pos']))
-            sent_c2c['bearishness_w'] = np.log((1+sent_c2c['count_neg_w'])/(1+sent_c2c['count_pos_w']))
-            sent_c2c['bearishness_w_d'] = np.log((1+sent_c2c['count_neg_w_d'])/(1+sent_c2c['count_pos_w_d']))
-            sent_c2c['bearishness_b'] = np.log((1+sent_c2c['count_neg_b'])/(1+sent_c2c['count_pos_b']))
-            sent_c2c['bearishness_a'] = np.log((1+sent_c2c['count_neg_a'])/(1+sent_c2c['count_pos_a']))
-            sent_c2c['bearishness_d'] = np.log((1+sent_c2c['count_neg_d'])/(1+sent_c2c['count_pos_d']))
 
             sent_c2c['agreement'] = 1 - (1 - ((sent_c2c['count_pos'] - sent_c2c['count_neg'])/(sent_c2c['count_pos'] + sent_c2c['count_neg'])) ** 2) ** 0.5
 
@@ -336,7 +331,9 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         std = df_c2c['{}'.format(x)].std()
         df_c2c['{}_std'.format(x)] = ((df_c2c['{}'.format(x)]-mean) / std)
 
-    return(df_c2c.set_index('date'))
+    df_c2c.set_index('date')
+
+    return(df_c2c.dropna(subset='bullishness'))
 
 
 def sent_stock_corr(df_sentstock, corr_var_sent, corr_var_stock):
@@ -484,7 +481,7 @@ def main_correlation_weekly(company, sent_dict):
     return pd.concat([df_sent, df_stock], axis=1)
 
 
-def main_correlation_allstocks(sentiment_dict, sent_min, vol_min):
+def main_correlation_allstocks(sentiment_dict, vol_min, sent_min):
     #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
     df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410AllStocks_{}_Vol{}_Sent{}'.format(sentiment_dict, vol_min, sent_min))
     #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\')
@@ -702,31 +699,29 @@ file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentim
 print(list('AAPL'))
 
 main_correlation_stockwise(list_of_companies= companies,
-                           list_of_dicts = [HE, LM, GI],
+                           list_of_dicts = [HE],
                            list_of_corr_var_sent = ['bullishness_a', 'bullishness_d', 'bullishness_b', 'bullishness', 'bullishness_w_d',
-                                                    'bearishness_a', 'bearishness_d', 'bearishness_b', 'bearishness', 'bearishness_w_d',
-                            'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
+                                                    'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
                            corr_var_stock= 'abnormal_returns',
-                           percentile_tweetcount=0,
-                           sent_min=0,
-                           sentiment_filter=False,
-                           volume_filter=False)
+                           percentile_tweetcount=50,
+                           sent_min=50,
+                           sentiment_filter=True,
+                           volume_filter=True)
 
 l = list()
 for company in companies:
-    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, GI, 0, 0)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, HE, 0, 0)
     df = pd.read_csv(file_path, encoding='utf-8')
     l.append(df)
 
 df = pd.concat(l)
-df.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format('AllStocks', GI, 0, 0))
-main_correlation_allstocks(GI, 0, 0)
-
+df.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format('AllStocks', HE, 50, 0))
+main_correlation_allstocks(HE, 50, 0)
 
 main('bullishness_d', 'abnormal_returns', companies, filter, filter, HE, True)
 
 file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(
-    'AAPL', HE, 0, 0)
+    'AAPL', HE, 50, 0)
 
 df = pd.read_csv(file_path)
 df.date = pd.to_datetime(df.date)
