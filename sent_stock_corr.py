@@ -226,6 +226,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
     daily_sentiments = []
     df_stock.index = pd.to_datetime(df_stock.index)
     dates = df_stock.index  # dates to search for in tweets dataframe
+    holidays = [date(2018, 2, 20), date(2018, 1, 16), date(2018, 3, 30)]
 
     for today in dates:
 
@@ -240,6 +241,7 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         one_day = timedelta(days=1)
         two_days = timedelta(days=2)
         three_days = timedelta(days=3)
+        four_days = timedelta(days=4)
 
         df_sent.date = pd.to_datetime(df_sent.date)
 

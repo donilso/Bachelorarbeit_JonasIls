@@ -32,31 +32,37 @@ def date_end(df_sent):
 
 
 def get_df_index(index):
-    df_index = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_^{}.csv'.format(index), encoding='utf-8')
-    df_index['daily_returns_index'] = df_index['Adj Close'] / df_index['Adj Close'].shift(1) - 1
+    df_index = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(index), encoding='utf-8')
+    df_index['daily_returns_index'] = df_index['Close'] / df_index['Close'].shift(1) - 1
     return df_index
 
 
 def daily_yield(company, start, end):
-    '''Function to parse daily stock quotes and calculate daily yields'''
+    '''Function to parse daily stock quotes and calculate daily excess returns as well as volatility and trading volumes'''
 
-    # parsing stockdata
-    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
-
-
-    # calculating yields
-    df_stock['daily_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
-    df_index = get_df_index('DJI')
-
-    # contact dataframes
+    # parsing stockdata and index data
+    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(company))
+    df_index = get_df_index('DIA')
     df = pd.concat([df_stock, df_index['daily_returns_index']], axis=1)
 
-    #df.rolling_cov100 = pd.rolling_cov(arg1=df.daily_returns, arg2=df.daily_returns_index, window=100, min_periods=100)
-    #df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
-    #beta = df.rolling_cov100 / df.rolling_varIndex100
-    #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * beta
-    df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
+    # calculation of daily stock returns
+    df['daily_returns'] = df['Close']/df['Close'].shift(1)-1
+
+    #calculation of abnormal returns utilizing an ols regressed market model
+    rolling_cov100 = df.daily_returns.rolling(window=100).cov(df.daily_returns_index, pairwise=True) #covariance between returns of stock and index
+    rolling_varIndex100 = df.daily_returns.rolling(window=100).var() #variance of returns of stock (independent varible)
+    b = rolling_cov100 / rolling_varIndex100 #calculation of bata
+    a = df.daily_returns.rolling(window=100).mean() - b * df.daily_returns_index.rolling(window=100).mean() #calculation of the intercept
+    daily_returns_hat = a + b * df.daily_returns_index #calculation of the estimated daily returns
+    df['abnormal_returns'] = df.daily_returns - daily_returns_hat #abnormal returns = the difference between est. returns and actual returns
+
+    # calculation of simple abnormal returns as the difference between stock returns and index returns
+    df['abnormal_returns_simple'] = df['daily_returns'] - df['daily_returns_index']
+
+    # calculation of intraday volatility after parks
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
+
+    # calculation of stadartized trading volumes
     volume_dollar = df['Volume'] * df['Close']
     rolling_mean = volume_dollar.rolling(window=21).mean()
     rolling_std = volume_dollar.rolling(window=21).std()
@@ -65,12 +71,10 @@ def daily_yield(company, start, end):
     # extract relevant time period
     df['Date'] = pd.to_datetime(df['Date'])
     one_day = timedelta(days=1)
-
     start_index = df_stock[df['Date'] == start].index.tolist()
     while not start_index:
         start = start + one_day
         start_index = df[df['Date'] == start].index.tolist()
-
     end_index = df[df['Date'] == end].index.tolist()
     while not end_index:
         end = end - one_day
@@ -98,13 +102,12 @@ def weekly_return(company):
     df_index = df_index.loc[df_index['weekday'] == 4]
     df_index['cw'] = df_index['Date'].dt.week
 
-    df_stock['weekly_returns'] = df_stock['Adj Close']/df_stock['Adj Close'].shift(1)-1
-    df_index['weekly_returns_index'] = df_index['Adj Close']/df_index['Adj Close'].shift(1)-1
+    df_stock['weekly_returns'] = df_stock['Close']/df_stock['Close'].shift(1)-1
+    df_index['weekly_returns_index'] = df_index['Close']/df_index['Close'].shift(1)-1
     df_stock = pd.concat([df_stock, df_index['weekly_returns_index']], axis=1)
     df_stock['abnormal_returns'] = df_stock['weekly_returns']-df_stock['weekly_returns_index']
 
     return df_stock
-
 
 
 # function to convert dates of typ sting to datetime format
@@ -198,6 +201,9 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, vol_mins):
             sent_c2c['ratio_pos'] = (sent_c2c['count_pos'] / sent_c2c['news_count'])
             sent_c2c['ratio_neg'] = sent_c2c['count_neg'] / sent_c2c['news_count']
             sent_c2c['bullishness'] = np.log((1+sent_c2c['count_pos'])/(1+sent_c2c['count_neg']))
+            sent_c2c['bullishness_b'] = np.log((1 + sent_c2c['count_pos_b']) / (1 + sent_c2c['count_neg_b']))
+            sent_c2c['bullishness_a'] = np.log((1 + sent_c2c['count_pos_a']) / (1 + sent_c2c['count_neg_a']))
+            sent_c2c['bullishness_d'] = np.log((1 + sent_c2c['count_pos_d']) / (1 + sent_c2c['count_neg_d']))
             sent_c2c['agreement'] = 1 - (1 - ((sent_c2c['count_pos'] - sent_c2c['count_neg'])/(sent_c2c['count_pos'] + sent_c2c['count_neg'])) ** 2) ** 0.5
 
         except Exception as e:
@@ -206,7 +212,15 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, vol_mins):
 
     df_c2c = threshold_articlecount(pd.DataFrame(daily_sentiments), vol_mins)
 
-    df_c2c.to_csv('')
+    #standardization of variables to enable correlations accross all stocks
+    var_std = ['news_count', 'count_pos', 'count_neg']
+
+    for x in var_std:
+        mean = df_c2c['{}'.format(x)].mean()
+        std = df_c2c['{}'.format(x)].std()
+        df_c2c['{}_std'.format(x)] = ((df_c2c['{}'.format(x)]-mean) / std)
+
+    df_c2c.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(company, sent_dict, vol_min))
 
     return(df_c2c.set_index('date'))
 
@@ -415,52 +429,58 @@ def c2c_allstocks(list_of_companies, vol_min, sentiment_dict):
         df = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(company, sentiment_dict, vol_min))
         dataframes.append(df)
 
-    df_DJI = pd.concat(dataframes)
-    df_DJI.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_Allstocks_{}_{}vol'.format(sentiment_dict, vol_min), encoding='utf-8')
+    df_DIA = pd.concat(dataframes)
+    df_DIA.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_Allstocks_{}_{}vol'.format(sentiment_dict, vol_min), encoding='utf-8')
 
 
 if __name__ == "__main__":
-    df_index = get_df_index('DJI')
+    df_index = get_df_index('DIA')
 
     LM = 'SentimentLM'
     GI = 'SentimentGI'
     HE = 'SentimentHE'
     TB = 'SentimentTB'
 
-    list_of_dicts = [GI]
+    list_of_dicts = [HE, LM, GI]
 
     # Define companies you'd like to analyze
-    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS', '$XOM', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG', '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
+    companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS',
+                '$XOM', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG',
+                '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     companies = [company.replace('$', '') for company in companies]
 
     corr_var_stock = 'volatility_parks'
     corr_var_sent = 'sent_std'
 
-    filter = [0]
+    filter = [0, 50]
 
     for company in companies:
-        df_tweets = open_df_sent(company)
-        # calculate timeperiod to parse stock quotes
-        start = date_start(df_tweets)
-        end = date_end(df_tweets)
-        # parse stock quotes
-        df_stock = daily_yield(company, start, end)
+        for d in list_of_dicts:
+            print(company)
+            df_tweets = open_df_sent(company)
+            print('Days:', len(df_tweets.date.unique()))
+            # calculate timeperiod to parse stock quotes
+            start = date_start(df_tweets)
+            end = date_end(df_tweets)
+            # parse stock quotes
+            df_stock = daily_yield(company, start, end)
 
-        tuple = (df_tweets, df_stock, company)
+            tuple = (df_tweets, df_stock, company)
 
+            for vol_min in filter:
+                df_sent = tuple[0]
+                df_stock = tuple[1]
+
+                df_c2cSent = close2close_sentiments(df_sent, d, df_stock, vol_min)
+                df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
+                df_sentstock.to_csv(
+                    'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(
+                        company, d, vol_min), encoding='utf-8')
+
+    for d in list_of_dicts:
         for vol_min in filter:
-
-            df_sent = tuple[0]
-            df_stock = tuple[1]
-
-            df_c2cSent = close2close_sentiments(df_sent, HE, df_stock, vol_min)
-            df_sentstock = pd.concat([df_c2cSent, df_stock], axis=1)
-            df_sentstock.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\C2C_Dataframes\\NewsC2C_{}_{}_{}vol'.format(company, GI, vol_min), encoding='utf-8')
-
-
-    for f in filter:
-        c2c_allstocks(companies, f, HE)
+            c2c_allstocks(companies, vol_min, d)
+            main_correlation_allstocks(d, vol_min)
 
     #main_correlation_stockwise(companies, [GI], ['sent_mean','bullishness', 'pol_pos', 'pol_neg' ], 'abnormal_returns', 0)
-        main_correlation_allstocks(HE, f)
-    #c2c_allstocks(companies, filter, GI)
+

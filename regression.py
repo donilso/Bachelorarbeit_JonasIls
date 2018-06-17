@@ -96,16 +96,16 @@ def regression_sklearn():
     plt.show()
 
 
-reg = regression_onefactor('tweet_count_std', 'volume_std')
+reg = regression_onefactor('bullishness_d', 'abnormal_returns')
 print(reg.summary())
 
-df_c2c = open_df_c2c('AllStocks', 'SentimentHE', 50, 0, data='twitter')
-df_c2c = df_c2c.dropna(subset=['volatility_parks', 'bullishness', 'agreement'])
-X = df_c2c[['bullishness', 'agreement']]
-y = df_c2c['volatility_parks']
+df_c2c = open_df_c2c('AllStocks', 'SentimentHE', 50, 0, data='news')
+df_c2c = df_c2c.dropna(subset=['count_neg_std', 'bullishness'])
+X = df_c2c[['bullishness']]
+y = df_c2c['abnormal_returns']
 X = sm.add_constant(X)
 
-model = sm.OLS(y, X).fit() ## sm.OLS(output, input)
+model = sm.OLS(y, X).fit()
 predictions = model.predict(X)
 
 # Print out the statistics
