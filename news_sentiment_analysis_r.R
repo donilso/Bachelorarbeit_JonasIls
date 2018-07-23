@@ -9,7 +9,7 @@ read_dataframe_articles = function(company){
   
   path_read = paste(dir_read, file_read, company, format, sep="")
   
-  df_articles = read.csv(path_read, header = TRUE, encoding="utf-8", sep=',')
+  df_articles = read.csv(path_read, header = TRUE, encoding="utf-8", sep='#')
   #df_articles =  df_articles[ , c("date", "article_clean" ,"time_adj", "Timeslot")]
   
   return(df_articles)
@@ -19,7 +19,7 @@ read_dataframe_articles = function(company){
 
 ### Utility function to write dataframe for certain company
 write_dataframe_articles = function(company, dataframe){
-  dir_write = 'C:\\Users\\jonast\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\'
+  dir_write = 'C:/Users/jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\'
   file_write = 'NewsSentimentDataframes_'
   format = '.csv'
   
@@ -48,6 +48,6 @@ companies = c('MSFT', 'MMM', 'AXP', 'AAPL', 'BA', 'CAT', 'CVX', 'CSCO', 'KO', 'D
 
 for (company in companies){
   print(company)
-  df_articles = sentiment_analysis_articles(company=company)
+  sentiment_analysis_articles(company=company)
 }
 

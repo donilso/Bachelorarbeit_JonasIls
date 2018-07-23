@@ -3,7 +3,6 @@ from wordcloud import WordCloud
 from io import StringIO
 import re
 import matplotlib.pyplot as plt
-from textblob import TextBlob
 
 
 class company_names(object):
@@ -55,30 +54,51 @@ def black_color_func(word, font_size, position, orientation, random_state=None,
            "%)"
 
 
-def get_TBSentiment(text):
-    '''Function to calculate a sentiment score based on the textblob library'''
-    analysis = TextBlob(text)
-    SentimentTB = analysis.sentiment.polarity
-    return(SentimentTB)
+def threshold_sentiment(df_sent, sent_dict, percentile):
+    #print("DF SENT FOR THRESHOLD:", len(df_sent))
+
+    # lists to store all neg / pos sentiment scores
+    values_neg = []
+    values_pos = []
+    # counter to track the number of 0-Sentiments
+    null_counter = 0
+
+    # iterating over the tweets
+    for index, tweet in df_sent.iterrows():
+        sent = tweet[sent_dict]
+
+        if sent < 0:
+            values_neg.append(sent)
+        elif sent > 0:
+            values_pos.append(sent)
+
+
+    # calculating the minimal sentiment based on the percentile given
+    try:
+        sent_min_pos = np.percentile(values_pos, percentile)
+    except:
+        sent_min_pos = 0
+
+    try:
+        sent_min_neg = np.percentile(values_neg, (100 - percentile))
+    except:
+        sent_min_neg = 0
+
+    return df_sent.loc[(df_sent[sent_dict] >= sent_min_pos) | (df_sent[sent_dict] <= (sent_min_neg))]
 
 
 def open_df_sent(company):
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'.format(company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
-    df_tweets = df_tweets
 
     df_tweets['text_clean'] = df_tweets['text_clean'].astype(str)
     df_tweets['date'] = pd.to_datetime(df_tweets['date'], errors='coerce')
-    #df_tweets['user_followers'] = df_tweets['user_followers'].astype(int)
 
-    # adding sentiment calculated with textblob
-    df_tweets['SentimentTB'] = df_tweets['text_clean'].apply(get_TBSentiment)
-    #df_tweets.text_clean.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\text_clean_spamfree.xls', encoding='utf-8')
     return df_tweets
 
 
 def open_df_news(company):
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\NewsSentimentDataframes_{}.csv'.format(
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Newsfeeds\\Sentiment_Dataframes\\NewsSentimentDataframes_{}.csv'.format(
         company)
     df_tweets = pd.read_csv(file_path, encoding="utf-8")
     df_tweets['article_clean'] = df_tweets['article_clean'].astype(str)
@@ -86,7 +106,7 @@ def open_df_news(company):
 
     # adding sentiment calculated with textblob
     #df_tweets['SentimentTB'] = df_tweets['text_clean'].apply(get_TBSentiment)
-    #df_tweets.text_clean.to_excel('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\text_clean_spamfree.xls', encoding='utf-8')
+    #df_tweets.text_clean.to_excel('C:\\Users\\jonas\\Documents\\BA_JonasIls\\text_clean_spamfree.xls', encoding='utf-8')
     return df_tweets
 
 
@@ -95,26 +115,8 @@ companies = [company.replace('$', '') for company in companies]
 
 all_text = ''
 
-#f = open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\newsclean_neg_allstocks.txt', 'r')
-#all_text = f.read()
-#f.close()
 
-counter = 0
-for company in companies:
-    print(company)
-    df = open_df_sent(company)
-    df = df.loc[df.SentimentLM > 0]
-    for index, tweet in df.iterrows():
-        text = tweet.text_clean.lower()
-        all_text = all_text + text
-        counter = counter + 1
-print(counter)
-
-#with open('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\newsclean_pos_allstocks.txt', 'w') as f:
-#    f.write(all_text)
-#    f.close()
-
-stopwords = ['stock ', 'market ', 'million ', 'billion ', 'management ', 'asset ', 'capital ', 'stake ', 'share ', 'business ', 'system ', 'dow jones ', 'think ', 'fourth quarter ', 'last quarter ', 'q4 ', 'nasdaq ', 'nyse ',
+stopwords = ['stock', 'market ', 'million ', 'billion ', 'management ', 'asset ', 'capital ', 'stake ', 'share ', 'business ', 'system ', 'dow jones ', 'think ', 'fourth quarter ', 'last quarter ', 'q4 ', 'nasdaq ', 'nyse ',
              'company ', 'companies ','Corp ', 'corp ','amp ', 'llc ', 'inc ', 'ltd ', 'holding ', ' co ', 'co. ', 'group ', 'iph ', 'firm ',
              'week ', 'will ', 'store ', 'new ', 'ci ', 'year ', 'one ', 'now ' , 'see ', 'say ', 'day ', 'today ', 'said ', 'still ', 'month ', 'back ', 'another ', 'use ', 'state ', 'come ', 'according ', 'beca ',
              'need ', 'end ', 'industry ',
@@ -135,18 +137,42 @@ for i in x:
 for stopword in stopwords:
     all_text = all_text.replace(stopword, " ")
 
+quantiles = [0, 50, 75, 90]
 
-# Generate a word cloud image
-#wordcloud = WordCloud().generate(all_text)
+for q in quantiles:
+    # open df
+    df = open_df_sent('AllStocks')
+    print(len(df))
 
-# Display the generated image:
-# the matplotlib way:
-#plt.imshow(wordcloud, interpolation='bilinear')
-#plt.axis("off")
+    # select 10%-Qantile of most sentimental tweets
+    df = threshold_sentiment(df, 'SentimentHE', q)
+    df_relevant = df.loc[df.SentimentHE > 0]
 
-# lower max_font_size
-wordcloud = WordCloud(max_words=100, max_font_size=40, background_color='white', color_func=black_color_func).generate(all_text)
-plt.figure()
-plt.imshow(wordcloud, interpolation="bilinear")
-plt.axis("off")
-plt.show()
+    # fill string with all text in relevant tweets
+    all_text = ''
+    for index, tweet in df_relevant.iterrows():
+        text = tweet.article_clean.lower()
+        all_text = all_text + text
+
+    for company in company_names._by_company:
+        stopwords.extend(company)
+
+    print(stopwords)
+    stopwords.sort(key=len, reverse=True)
+    print(stopwords)
+
+    for i in x:
+        all_text = all_text.replace(i, " ")
+
+    for stopword in stopwords:
+        all_text = all_text.replace(stopword, " ")
+
+    # lower max_font_size
+    wordcloud = WordCloud(max_words=100, max_font_size=40,
+                          background_color='white', color_func=black_color_func).generate(all_text)
+    plt.figure()
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    #plt.show()
+    plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\WordCloud\\Quantiles\\news_wordcloud_bigrams_pos_{}'.format(q))
+

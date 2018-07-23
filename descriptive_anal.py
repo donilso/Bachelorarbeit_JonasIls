@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import calendar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import seaborn as sns
 
 
@@ -42,7 +42,7 @@ def create_c2c(company, sent_dict):
 
     df_sentstock = ssc.close2close_sentiments(df_sent, sent_dict, df_stock, 0, 0, volume_filter=True, sentiment_filter=True)
     df_sentstock = pd.concat([df_sentstock, df_stock], axis=1)
-    df_sentstock.to_csv('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2C_{}'.format(company), index_label='date')
+    df_sentstock.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\C2C_Dataframes\\20180101_20180217_C2C_{}'.format(company), index_label='date')
     return(df_sentstock)
 
 
@@ -60,7 +60,7 @@ def get_TBSentiment(text):
 def open_df_c2c(company, sentiment_dict, vol_min, sent_min):
     bad_days = ['2018-01-04', '2018-01-03', '2018-01-02', '2018-01-01', '2018-01-25', '2018-01-26', '2018-01-27',
                 '2018-02-02', '2018-02-03', '2018-02-06', '2018-02-10']
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\C2C_Dataframes\\c2c_spamcleaned{}_{}_Vol{}_Sent{}'.format(company, sentiment_dict, vol_min, sent_min)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, sentiment_dict, vol_min, sent_min)
     df = pd.read_csv(file_path, encoding="utf-8", index_col=0)
     df.index = df.index.astype(str)
     print(len(df))
@@ -80,7 +80,7 @@ def open_df_sent(company):
     bad_days = ['2018-01-04', '2018-01-03', '2018-01-02', '2018-01-01', '2018-01-25', '2018-01-26', '2018-01-27',
                 '2018-02-02', '2018-02-03', '2018-02-06', '2018-02-10', '2018-02-18']
 
-    file_path = 'C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180217\\20180101_20180217_SentimentDataframes_{}'.format(company)
     df = pd.read_csv(file_path, encoding="utf-8")
     df['date'] = df['date'].astype(str)
     df = df.set_index('date')
@@ -121,11 +121,12 @@ def plot_sentiment_dist(company, sentiment_dict):
     ax.plot(bins, y, '--')
     ax.set_xlabel('Sentiment Values')
     ax.set_ylabel('Probability density')
+    ax.hist(df_sent, weights=np.zeros_like(data) + 1. / data.size)
     ax.set_title('Histogram of {}'.format(sentiment_dict))
 
     # Tweak spacing to prevent clipping of ylabel
     fig.tight_layout()
-    plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Sent_Distribution\\Twitter_PlotSentDist_{}'.format(sentiment_dict), bbox_inches='tight')
+    plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Sent_Distribution\\Twitter_PlotSentDist_{}'.format(sentiment_dict), bbox_inches='tight')
     plt.show()
 
 
@@ -258,7 +259,7 @@ def plot_tweetcount_byweekday(company):
     #plt.xticks(list(range(0, 24)), ['00:00 - 00:59', '01:00 - 01:59', '02:00 - 02:59', '03:00 - 03:59', '04:00 - 04:59', '05:00 - 05:59', '06:00 - 06:59', '07:00 - 07:59', '08:00 - 08:59', '09:00 - 09:59', '10:00 - 10:59', '11:00 - 11:59', '12:00 - 12:59', '13:00 - 13:59', '14:00 - 14:59', '15:00 - 15:59', '16:00 - 16:59', '17:00 - 17:59', '18:00 - 18:59', '19:00 - 19:59', '20:00 - 20:59', '21:00 - 21:59', '22:00 - 22:59', '23:00 - 23:59'])
     plt.xticks([0, 1, 2, 3, 4, 5, 6], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
 
-    #plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\PlotTweetCount_Hour_Weekend', bbox_inches='tight')
+    #plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\PlotTweetCount_Hour_Weekend', bbox_inches='tight')
     plt.show()
 
 
@@ -294,7 +295,7 @@ def plot_twittervsstock(company, sentiment_dict, stock_var, twi_var, vol_min, se
 
     plt.legend(handles, labels,loc=0)
 
-    plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Twitter_vs_Stock\\PlotTwiStock{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
+    plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Twitter_vs_Stock\\PlotTwiStock{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
 
 
 def scatterplot(company, stock_var, twi_var, sentiment_dict, vol_min, sent_min):
@@ -316,7 +317,7 @@ def scatterplot(company, stock_var, twi_var, sentiment_dict, vol_min, sent_min):
     plt.ylabel('{}'.format(stock_var))
     plt.xlabel('{}'.format(twi_var))
     plt.title('{} vs. {}'.format(stock_var, twi_var))
-    #plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\ScatterPlots\\PlotScatter{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
+    #plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\ScatterPlots\\PlotScatter{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
 
     plt.show()
 
@@ -374,7 +375,7 @@ def dont_know():
         plt.ylabel('{}'.format(stock_var))
         plt.xlabel('{}'.format(var))
         plt.title('{} vs. {}'.format(stock_var, var))
-        # plt.savefig('C:\\Users\\Open Account\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\ScatterPlots\\PlotScatter{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
+        # plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\ScatterPlots\\PlotScatter{}_{}_{}'.format(company, stock_var, twi_var), bbox_inches='tight')
 
         plt.show()
 
@@ -383,3 +384,64 @@ def dont_know():
 
 df = open_df_sent('AllStocks')
 print(len(df))
+print(len(df.date.unique()))
+
+len(df)/(len(df.date.unique())*30)
+
+d = ['SentimentLM', 'SentimentGI', 'SentimentHE']
+
+for sentiment_dict in d:
+    df_plot = df['{}'.format(sentiment_dict)]
+
+    print('set parameters')
+    mu = df_plot.mean()  # mean of distribution
+    sigma = df_plot.std()  # standard deviation of distribution
+    x = df_plot
+    num_bins = 40
+
+    print('create plot')
+    fig, ax = plt.subplots()
+
+    # the histogram of the data
+    n, bins, patches = ax.hist(x, num_bins, normed=1, rwidth=0.8)
+
+    # add a 'best fit' line
+    y = scipy.stats.norm.pdf(bins, mu, sigma)
+    ax.plot(bins, y, '--')
+    ax.set_xlabel('Sentiment Values')
+    ax.set_ylabel('Probability density')
+    #ax.hist(df_plot, weights=np.zeros_like(df_plot) + 1. / df_plot.size)
+    ax.set_title('Histogram of {}'.format(sentiment_dict))
+
+    # Tweak spacing to prevent clipping of ylabel
+    fig.tight_layout()
+    plt.savefig('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Plots\\Sent_Distribution\\News_PlotSentDist_{}'.format(sentiment_dict), bbox_inches='tight')
+
+start=date(2018, 1, 1)
+end = date(2018, 3, 9)
+
+l = list()
+for company in companies:
+    df = daily_yield(company, start, end)
+    l.append(df)
+
+df = pd.concat(l)
+df.date = pd.to_datetime(df.date)
+df = df[['volume_dollar', 'date']]
+
+print(df)
+df = df.groupby('date').sum()
+#df = df.reset_index()
+df['dow'] = df['date'].dt.dayofweek
+#df['cw'] = df['date'].dt.week
+df = df.groupby('dow').mean()
+df = df.reset_index()
+
+df.time_adj.plot(kind='bar', legend=False, color='black')
+# plt.bar(x, height, color=(0.2, 0.4, 0.6, 0.6))
+plt.xlabel('Weekday')
+plt.ylabel('Number of Tweets')
+plt.title('Average Number of Tweets per Weekday')
+plt.xticks([0, 1, 2, 3, 4, 5, 6], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+
+plt.show()

@@ -84,28 +84,47 @@ def daily_yield(company, start, end):
 
 
 def weekly_return(company):
-    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180201StockPrices_{}.csv'.format(company))
+    df_stock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Stock_Quotes\\20180613StockPrices_{}.csv'.format(company))
+    df_index = get_df_index('DIA')
+    df_stock['Close_Index'] = df_index['Close']
 
     avg_price = (df_stock['High'] + df_stock['Low']) / 2
     vol_dollar = df_stock['Volume'] * avg_price
-    vol_weekly = pd.rolling_sum(vol_dollar, window=7)
+    vol_weekly = vol_dollar.rolling(window=7).sum()
     df_stock['vol_weekly_std'] = (vol_weekly - vol_weekly.mean())/vol_weekly.std()
 
     df_stock['Date'] = pd.to_datetime(df_stock ['Date'])
     df_stock['weekday'] = df_stock ['Date'].dt.dayofweek
-    df_stock = df_stock .loc[df_stock ['weekday'] == 4]
     df_stock['cw'] = df_stock ['Date'].dt.week
+    df_stock['year'] = df_stock['Date'].dt.year
+    years = df_stock.year.unique()
 
-    df_index = get_df_index('DIA')
-    df_index['Date'] = pd.to_datetime(df_index['Date'])
-    df_index['weekday'] = df_index['Date'].dt.dayofweek
-    df_index = df_index.loc[df_index['weekday'] == 4]
-    df_index['cw'] = df_index['Date'].dt.week
+    # select last day of week, taking possible holidays on a friday into account
+    rows = []
+
+    for year in years:
+        for week in df_stock.cw.unique():
+            d = df_stock.loc[(df_stock.cw == week) & (df_stock.year == year)]
+            try:
+                d = d.loc[d.weekday == max(d.weekday)]
+            except:
+                print('max() is empty since week is not available for the respective year')
+            rows.append(d)
+
+    df_stock = pd.concat(rows)
+
+    #simple solution of getting close-days of weeks // PROBLEM if Friday is holiday!!
+    #df_stock = df_stock .loc[df_stock['weekday'] == 4]
+
+    #df_index = get_df_index('DIA')
+    #df_index['Date'] = pd.to_datetime(df_index['Date'])
+    #df_index['weekday'] = df_index['Date'].dt.dayofweek
+    #df_index = df_index.loc[df_index['weekday'] == 4]
+    #df_index['cw'] = df_index['Date'].dt.week
 
     df_stock['weekly_returns'] = df_stock['Close']/df_stock['Close'].shift(1)-1
-    df_index['weekly_returns_index'] = df_index['Close']/df_index['Close'].shift(1)-1
-    df_stock = pd.concat([df_stock, df_index['weekly_returns_index']], axis=1)
-    df_stock['abnormal_returns'] = df_stock['weekly_returns']-df_stock['weekly_returns_index']
+    df_stock['weekly_returns_index'] = df_stock['Close_Index']/df_stock['Close_Index'].shift(1)-1
+    df_stock['abnormal_returns'] = df_stock['weekly_returns'] - df_stock['weekly_returns_index']
 
     return df_stock
 
@@ -373,17 +392,27 @@ def main_correlation_weekly(company, sent_dict):
     df_sent['weekday'] = df_sent['date'].dt.weekday
     df_sent['cw'] = df_sent['date'].dt.week
 
+    #define relevant weeks (week one and 15 are dropped, since there is only one day of data for this week
+    weeks = df_sent.cw.unique()
+    weeks = [x for x in weeks if x not in [1, 15]]
+
     weekly = []
-    for week in df_sent.cw.unique():
+    for week in weeks:
         print(week)
-
         # select tweets to extract for each week
-        rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])) |
-                                                       ((df_sent['weekday'] == 4) & (df_sent['Timeslot'].isin(['BEFORE', 'DURING']))))) |
-                           ((df_sent['cw'] == week - 1) & ((df_sent['weekday'].isin([5, 6])) |
-                                                           ((df_sent['weekday'] == 4) & (df_sent['Timeslot'] == 'AFTER'))))]
+        rows_during = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3, 4])) & (df_sent['Timeslot'] == 'DURING')]
+        rows_before = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3, 4])) & (df_sent['Timeslot'] == 'before')]
+        rows_after = df_sent.loc[(((df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3]))) |
+                                  ((df_sent['cw'] == week-1) & (df_sent['weekday'] == 4))) &
+                                 (df_sent['Timeslot'] == 'after')]
+        rows_weekend = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([5, 6]))]
 
-        rows['sent_w'] = rows['{}'.format(sent_dict)]*rows['user_followers']
+
+        rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])))) |
+                            ((df_sent['cw'] == week) &((df_sent['weekday'] == 4) & (df_sent['Timeslot'].isin(['before', 'DURING'])))) |
+                           ((df_sent['cw'] == week - 1) & (df_sent['weekday'].isin([5, 6]))) |
+                            ((df_sent['cw'] == week - 1) & ((df_sent['weekday'] == 4) & (df_sent['Timeslot'] == 'after')))]
+
 
         # create dictionary to store aggregated sentiment metrics
         sent_c2c = {}
@@ -391,14 +420,24 @@ def main_correlation_weekly(company, sent_dict):
         sent_c2c['cw'] = week
 
         # calculating volume metrics
-        sent_c2c['news_count'] = len(rows)
+        sent_c2c['tweet_count'] = len(rows)
+
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
+        sent_c2c['count_pos_d'] = len(rows_during.loc[rows_during[sent_dict] > 0])
+        sent_c2c['count_pos_we'] = len(rows_weekend.loc[rows_weekend[sent_dict] > 0])
+
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
+        sent_c2c['count_neg_d'] = len(rows_during.loc[rows_during[sent_dict] < 0])
+        sent_c2c['count_neg_we'] = len(rows_weekend.loc[rows_weekend[sent_dict] < 0])
+
 
         # calculating return an volatility metrics
         sent_c2c['sent_mean'] = np.mean(rows[sent_dict])
         sent_c2c['sent_std'] = np.std(rows[sent_dict])
         sent_c2c['bullishness'] = np.log((1 + sent_c2c['count_pos']) / (1 + sent_c2c['count_neg']))
+        sent_c2c['bullishness_d'] = np.log((1 + sent_c2c['count_pos_d']) / (1 + sent_c2c['count_neg_d']))
+        sent_c2c['bullishness_we'] = np.log((1 + sent_c2c['count_pos_we']) / (1 + sent_c2c['count_neg_we']))
+
         sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
         sent_c2c['pol_neg'] = polarity(rows, sent_dict, False)
         try:
@@ -412,14 +451,16 @@ def main_correlation_weekly(company, sent_dict):
 
     df_sent = pd.DataFrame(weekly).set_index('cw')
 
-    nc_mean = df_sent['news_count'].mean()
-    nc_std = df_sent['news_count'].std()
-    df_sent['news_count_std'] = (df_sent['news_count'] - nc_mean) / nc_std
+    tc_mean = df_sent['tweet_count'].mean()
+    tc_std = df_sent['tweet_count'].std()
+    df_sent['tweet_count_std'] = (df_sent['tweet_count'] - tc_mean) / tc_std
+
 
     df_stock = weekly_return(company)
     df_stock = df_stock.loc[(df_stock.cw.isin(df_sent.index)) & (df_stock.Date.dt.year == 2018)].set_index('cw')
 
     return pd.concat([df_sent, df_stock], axis=1)
+
 
 
 def c2c_allstocks(list_of_companies, vol_min, sentiment_dict):
@@ -441,7 +482,7 @@ if __name__ == "__main__":
     HE = 'SentimentHE'
     TB = 'SentimentTB'
 
-    list_of_dicts = [HE, LM, GI]
+    list_of_dicts = [GI]
 
     # Define companies you'd like to analyze
     companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS',
@@ -453,6 +494,19 @@ if __name__ == "__main__":
     corr_var_sent = 'sent_std'
 
     filter = [0, 50]
+
+
+    l = list()
+    for company in companies:
+        df_weekly = main_correlation_weekly(company, HE)
+        l.append(df_weekly)
+
+    df_weekly = pd.concat(l)
+
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\News_CorrAllStocks{}_weekly.xls'.format(HE)
+    df_weekly = df_weekly.corr()
+    df_weekly.to_excel(file_path, encoding='utf-8')
+
 
     for company in companies:
         for d in list_of_dicts:

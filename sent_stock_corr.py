@@ -81,10 +81,10 @@ def daily_yield(company, start, end):
 
     #calculating parks volatility
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
-    volume_dollar = df['Volume'] * df['Open']
-    rolling_mean = volume_dollar.rolling(window=100).mean()
-    rolling_std = volume_dollar.rolling(window=100).std()
-    df['volume_std'] = (volume_dollar - rolling_mean) / rolling_std
+    df['volume_dollar'] = df['Volume'] * ((df['Open']+df['Close'])/2)
+    rolling_mean = df['volume_dollar'].rolling(window=100).mean()
+    rolling_std = df['volume_dollar'].rolling(window=100).std()
+    df['volume_std'] = (df['volume_dollar'] - rolling_mean) / rolling_std
 
     # extract relevant time period
     df['Date'] = pd.to_datetime(df['Date'])
@@ -115,8 +115,26 @@ def weekly_return(company):
 
     df_stock['Date'] = pd.to_datetime(df_stock ['Date'])
     df_stock['weekday'] = df_stock ['Date'].dt.dayofweek
-    df_stock = df_stock .loc[df_stock ['weekday'] == 4]
     df_stock['cw'] = df_stock ['Date'].dt.week
+    df_stock['year'] = df_stock['Date'].dt.year
+    years = df_stock.year.unique()
+
+    # select last day of week, taking possible holidays on a friday into account
+    rows = []
+
+    for year in years:
+        for week in df_stock.cw.unique():
+            d = df_stock.loc[(df_stock.cw == week) & (df_stock.year == year)]
+            try:
+                d = d.loc[d.weekday == max(d.weekday)]
+            except:
+                print('max() is empty since week is not available for the respective year')
+            rows.append(d)
+
+    df_stock = pd.concat(rows)
+
+    #simple solution of getting close-days of weeks // PROBLEM if Friday is holiday!!
+    #df_stock = df_stock .loc[df_stock['weekday'] == 4]
 
     #df_index = get_df_index('DIA')
     #df_index['Date'] = pd.to_datetime(df_index['Date'])
@@ -126,8 +144,7 @@ def weekly_return(company):
 
     df_stock['weekly_returns'] = df_stock['Close']/df_stock['Close'].shift(1)-1
     df_stock['weekly_returns_index'] = df_stock['Close_Index']/df_stock['Close_Index'].shift(1)-1
-    df_stock = pd.concat([df_stock, df_index['weekly_returns_index']], axis=1)
-    df_stock['abnormal_returns'] = df_stock['weekly_returns']-df_stock['weekly_returns_index']
+    df_stock['abnormal_returns'] = df_stock['weekly_returns'] - df_stock['weekly_returns_index']
 
     return df_stock
 
@@ -285,9 +302,15 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
         sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] > 0]['user_followers'].sum()
+
         sent_c2c['count_pos_w_d'] = rows_during.loc[rows_during[sent_dict] > 0]['user_followers'].sum()
+        sent_c2c['count_pos_w_a'] = rows_after.loc[rows_after[sent_dict] > 0]['user_followers'].sum()
+        sent_c2c['count_pos_w_b'] = rows_before.loc[rows_before[sent_dict] > 0]['user_followers'].sum()
         sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
         sent_c2c['count_neg_w_d'] = rows_during.loc[rows_during[sent_dict] < 0]['user_followers'].sum()
+        sent_c2c['count_neg_w_a'] = rows_after.loc[rows_after[sent_dict] < 0]['user_followers'].sum()
+        sent_c2c['count_neg_w_b'] = rows_before.loc[rows_before[sent_dict] < 0]['user_followers'].sum()
+
         sent_c2c['count_pos_b'] = len(rows_before.loc[rows_before[sent_dict] > 0])
         sent_c2c['count_neg_b'] = len(rows_before.loc[rows_before[sent_dict] < 0])
         sent_c2c['count_pos_a'] = len(rows_after.loc[rows_after[sent_dict] > 0])
@@ -304,6 +327,8 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
             sent_c2c['bullishness'] = np.log((1 + sent_c2c['count_pos']) / (1 + sent_c2c['count_neg']))
             sent_c2c['bullishness_w'] = np.log((1+sent_c2c['count_pos_w'])/(1+sent_c2c['count_neg_w']))
             sent_c2c['bullishness_w_d'] = np.log((1+sent_c2c['count_pos_w_d'])/(1+sent_c2c['count_neg_w_d']))
+            sent_c2c['bullishness_w_a'] = np.log((1 + sent_c2c['count_pos_w_a']) / (1 + sent_c2c['count_neg_w_a']))
+            sent_c2c['bullishness_w_b'] = np.log((1 + sent_c2c['count_pos_w_b']) / (1 + sent_c2c['count_neg_w_b']))
             sent_c2c['bullishness_b'] = np.log((1+sent_c2c['count_pos_b'])/(1+sent_c2c['count_neg_b']))
             sent_c2c['bullishness_a'] = np.log((1+sent_c2c['count_pos_a'])/(1+sent_c2c['count_neg_a']))
             sent_c2c['bullishness_d'] = np.log((1+sent_c2c['count_pos_d'])/(1+sent_c2c['count_neg_d']))
@@ -333,9 +358,11 @@ def close2close_sentiments(df_sent, sent_dict, df_stock, sent_mins, vol_mins, vo
         std = df_c2c['{}'.format(x)].std()
         df_c2c['{}_std'.format(x)] = ((df_c2c['{}'.format(x)]-mean) / std)
 
-    df_c2c.set_index('date')
 
-    return(df_c2c.dropna(subset='bullishness'))
+    df_c2c = df_c2c.reset_index()
+    df_c2c = df_c2c.set_index('date')
+
+    return df_c2c.dropna(subset=['bullishness'])
 
 
 def sent_stock_corr(df_sentstock, corr_var_sent, corr_var_stock):
@@ -428,6 +455,14 @@ def main_correlation_weekly(company, sent_dict):
     for week in weeks:
         print(week)
         # select tweets to extract for each week
+        rows_during = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3, 4])) & (df_sent['timeslot'] == 'during')]
+        rows_before = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3, 4])) & (df_sent['timeslot'] == 'before')]
+        rows_after = df_sent.loc[(((df_sent['cw'] == week) & (df_sent['weekday'].isin([0, 1, 2, 3]))) |
+                                  ((df_sent['cw'] == week-1) & (df_sent['weekday'] == 4))) &
+                                 (df_sent['timeslot'] == 'after')]
+        rows_weekend = df_sent.loc[(df_sent['cw'] == week) & (df_sent['weekday'].isin([5, 6]))]
+
+
         rows = df_sent.loc[((df_sent['cw'] == week) & ((df_sent['weekday'].isin([0, 1, 2, 3])))) |
                             ((df_sent['cw'] == week) &((df_sent['weekday'] == 4) & (df_sent['timeslot'].isin(['before', 'during'])))) |
                            ((df_sent['cw'] == week - 1) & (df_sent['weekday'].isin([5, 6]))) |
@@ -443,8 +478,15 @@ def main_correlation_weekly(company, sent_dict):
         # calculating volume metrics
         sent_c2c['tweet_count'] = len(rows)
         sent_c2c['tweet_count_w'] = rows['user_followers'].sum()
+
         sent_c2c['count_pos'] = len(rows.loc[rows[sent_dict] > 0])
+        sent_c2c['count_pos_d'] = len(rows_during.loc[rows_during[sent_dict] > 0])
+        sent_c2c['count_pos_we'] = len(rows_weekend.loc[rows_weekend[sent_dict] > 0])
+
         sent_c2c['count_neg'] = len(rows.loc[rows[sent_dict] < 0])
+        sent_c2c['count_neg_d'] = len(rows_during.loc[rows_during[sent_dict] < 0])
+        sent_c2c['count_neg_we'] = len(rows_weekend.loc[rows_weekend[sent_dict] < 0])
+
         sent_c2c['count_pos_w'] = rows.loc[rows[sent_dict] > 0]['user_followers'].sum()
         sent_c2c['count_neg_w'] = rows.loc[rows[sent_dict] < 0]['user_followers'].sum()
 
@@ -453,6 +495,9 @@ def main_correlation_weekly(company, sent_dict):
         sent_c2c['sent_std'] = np.std(rows[sent_dict])
         sent_c2c['sent_mean_w'] = rows['sent_w'].sum() / sent_c2c['tweet_count_w']
         sent_c2c['bullishness'] = np.log((1 + sent_c2c['count_pos']) / (1 + sent_c2c['count_neg']))
+        sent_c2c['bullishness_d'] = np.log((1 + sent_c2c['count_pos_d']) / (1 + sent_c2c['count_neg_d']))
+        sent_c2c['bullishness_we'] = np.log((1 + sent_c2c['count_pos_we']) / (1 + sent_c2c['count_neg_we']))
+
         sent_c2c['bullishness_w'] = np.log((1 + sent_c2c['count_pos_w']) / (1 + sent_c2c['count_neg_w']))
         sent_c2c['pol_pos'] = polarity(rows, sent_dict, True)
         sent_c2c['pol_neg'] = polarity(rows, sent_dict, False)
@@ -483,14 +528,14 @@ def main_correlation_weekly(company, sent_dict):
     return pd.concat([df_sent, df_stock], axis=1)
 
 
-def main_correlation_allstocks(sentiment_dict, vol_min, sent_min):
+def main_correlation_allstocks(sentiment_dict, vol_min, sent_min, method):
     #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\All_Stocks\\{}\\20180217_DF_C2C{}_{}vol_{}sen'.format(sentiment_dict, sentiment_dict, vol_min, sent_min))
     df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410AllStocks_{}_Vol{}_Sent{}'.format(sentiment_dict, vol_min, sent_min))
     #df_sentstock = pd.read_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\spam_cleaned\\c2c_dataframes\\')
 
-    correlations = df_sentstock.corr()
+    correlations = df_sentstock.corr(method=method)
 
-    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_CorrAllStocks{}_{}Vol_{}Sent.xls'.format(sentiment_dict, vol_min, sent_min)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_Corr{}AllStocks{}_{}Vol_{}Sent.xls'.format(method, sentiment_dict, vol_min, sent_min)
     correlations.to_excel(file_path, encoding='uft-8')
     return correlations
 
@@ -690,50 +735,28 @@ if __name__ == "__main__":
 
     filter = [0, 25, 50, 75]
 
-    main('bullishness_d', 'abnormal_returns', companies, filter, filter, HE, True)
+    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'
 
-df_sent_allstocks = pd.concat(l)
-print(len(df_sent_allstocks))
-print(len(df_sent_allstocks.date.unique()))
+    main_correlation_stockwise(list_of_companies= companies,
+                               list_of_dicts = [HE],
+                               list_of_corr_var_sent = ['bullishness_a', 'bullishness_d', 'bullishness_b', 'bullishness', 'bullishness_w_d',
+                                                        'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
+                               corr_var_stock='abnormal_returns',
+                               percentile_tweetcount=50,
+                               sent_min=0,
+                               sentiment_filter=True,
+                               volume_filter=True)
 
-file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'
+    #main_correlation_allstocks(HE, 5 0, 0, 'spearman')
 
-print(list('AAPL'))
+#    l = list()
+#    for company in companies:
+#        df_weekly = main_correlation_weekly(company, HE)
+#        l.append(df_weekly)
 
-main_correlation_stockwise(list_of_companies= companies,
-                           list_of_dicts = [HE],
-                           list_of_corr_var_sent = ['bullishness_a', 'bullishness_d', 'bullishness_b', 'bullishness', 'bullishness_w_d',
-                                                    'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
-                           corr_var_stock= 'abnormal_returns',
-                           percentile_tweetcount=50,
-                           sent_min=50,
-                           sentiment_filter=True,
-                           volume_filter=True)
+#    df_weekly = pd.concat(l)
 
-l = list()
-for company in companies:
-    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, HE, 0, 0)
-    df = pd.read_csv(file_path, encoding='utf-8')
-    l.append(df)
+#    file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_CorrAllStocks{}_weekly.xls'.format(HE)
+#    df_weekly = df_weekly.corr()
+#    df_weekly.to_excel(file_path, encoding='utf-8')
 
-df = pd.concat(l)
-df.to_csv('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format('AllStocks', HE, 50, 0))
-main_correlation_allstocks(HE, 50, 0)
-
-main('bullishness_d', 'abnormal_returns', companies, filter, filter, HE, True)
-
-file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\c2c_dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(
-    'AAPL', HE, 50, 0)
-
-df = pd.read_csv(file_path)
-df.date = pd.to_datetime(df.date)
-df['cw']=df['date'].dt.week
-
-l = list()
-for company in companies:
-    df_weekly = main_correlation_weekly(company, HE)
-    l.append(df_weekly)
-
-file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Correlations\\20180410_CorrAllStocks{}_weekly.xls'.format(HE)
-df_weekly = df_weekly.corr()
-df_weekly.to_excel(file_path, encoding='utf-8')

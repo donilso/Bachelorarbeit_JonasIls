@@ -3,6 +3,9 @@ import numpy as np
 import datetime
 import statsmodels.api as sm
 
+import linearmodels
+from linearmodels import PanelOLS
+
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -19,10 +22,10 @@ def open_df_c2c(company, sentiment_dict, vol_min, sent_min, data):
         return df
 
     elif data == 'twitter':
-        file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410AllStocks_{}_Vol{}_Sent{}'.format(sentiment_dict, vol_min, sent_min)
+        file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\C2C_Dataframes\\c2c_20180101_20180410{}_{}_Vol{}_Sent{}'.format(company, sentiment_dict, vol_min, sent_min)
         df = pd.read_csv(file_path, encoding="utf-8", index_col=0)
         df.index = df.index.astype(str)
-        print(len(df))
+        #print(len(df))
 
         return df
 
@@ -50,11 +53,9 @@ def regression_twofactor(df_c2c, stock_var, twi_var1, twi_var2):
     #results.save('C:\\Users\\jonas\\Documents\\BA_JonasIls\\Literatur & Analysen\\Regression\\Regr_{}_{}&{}.pickle'.format(stock_var, twi_var1, twi_var2))
     return results
 
-
-
-def regression_sklearn():
+def regression_sklearn(df):
     # Load the diabetes dataset
-    df = open_df_c2c('AllStocks', 'SentimentHE', 0, 0, data='twitter')
+    #df = open_df_c2c('AllStocks', 'SentimentHE', 0, 0, data='twitter')
     df = df.dropna()
 
     var_std = ['tweet_count', 'count_pos', 'count_neg', 'tweet_count_w', 'count_pos_w', 'count_neg_w']
@@ -65,7 +66,7 @@ def regression_sklearn():
 
     # Use only one feature
     df_x = df[['bullishness_d']]
-    df_y = df['abnormal_returns']
+    df_y = df['abnormal_returns']*100
 
     # Split the data and target into training/testing sets
     x_train, x_test, y_train, y_test = train_test_split(df_x, df_y, test_size=0.2, random_state=4)
@@ -99,14 +100,31 @@ def regression_sklearn():
 reg = regression_onefactor('bullishness_d', 'abnormal_returns')
 print(reg.summary())
 
-df_c2c = open_df_c2c('AllStocks', 'SentimentHE', 50, 0, data='news')
-df_c2c = df_c2c.dropna(subset=['count_neg_std', 'bullishness'])
-X = df_c2c[['bullishness']]
-y = df_c2c['abnormal_returns']
-X = sm.add_constant(X)
+l = list()
+for company in companies:
+    df_c2c = open_df_c2c(company, 'SentimentHE', 0, 0, data='twitter')
+    print(df_c2c.head())
+    df_c2c['company'] = company
+    l.append(df_c2c)
 
-model = sm.OLS(y, X).fit()
-predictions = model.predict(X)
+df = pd.concat(l)
+df = df.reset_index()
+df.date = pd.to_datetime(df.date)
+df = df.set_index(['company', 'date'])
 
+df = df.dropna( subset=['bullishness_d', 'tweet_count', 'daily_returns_index', 'bullishness_a', 'bullishness_b'])
+X = df[['bullishness_d', 'tweet_count', 'bullishness_a', 'bullishness_b']]
+y = df['abnormal_returns']*100
+#X = sm.add_constant(X)
+#model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags':1})
+#predictions = model.predict(X)
+
+df['abnormal_returns'] = df['abnormal_returns']*100
+model = linearmodels.PanelOLS(df['abnormal_returns'], df[['bullishness_d', 'tweet_count', 'daily_returns_index', 'agreement']],
+                              entity_effects=True)
+results = model.fit(cov_type='clustered', cluster_entity=True)
+print(results)
 # Print out the statistics
 print(model.summary())
+
+df = open_df_c2c('MSFT', 'SentimentHE', 0, 0, 'twitter')
