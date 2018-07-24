@@ -112,15 +112,15 @@ df = df.reset_index()
 df.date = pd.to_datetime(df.date)
 df = df.set_index(['company', 'date'])
 
-df = df.dropna( subset=['bullishness_d', 'tweet_count', 'daily_returns_index', 'bullishness_a', 'bullishness_b'])
-X = df[['bullishness_d', 'tweet_count', 'bullishness_a', 'bullishness_b']]
-y = df['abnormal_returns']*100
-#X = sm.add_constant(X)
+df = df.dropna(subset=['bullishness_d', 'tweet_count', 'daily_returns_index', 'bullishness_a', 'bullishness_b'])
+X = df[['bullishness_d', 'tweet_count', 'agreement', 'daily_returns_index']]
+y = df['abnormal_returns']
+X = sm.add_constant(X)
 #model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags':1})
 #predictions = model.predict(X)
 
-df['abnormal_returns'] = df['abnormal_returns']*100
-model = linearmodels.PanelOLS(df['abnormal_returns'], df[['bullishness_d', 'tweet_count', 'daily_returns_index', 'agreement']],
+#df['abnormal_returns'] = df['abnormal_returns']*100
+model = linearmodels.PanelOLS(y, X,
                               entity_effects=True)
 results = model.fit(cov_type='clustered', cluster_entity=True)
 print(results)
@@ -128,3 +128,5 @@ print(results)
 print(model.summary())
 
 df = open_df_c2c('MSFT', 'SentimentHE', 0, 0, 'twitter')
+
+print(df.head())
