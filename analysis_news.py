@@ -51,9 +51,9 @@ def daily_yield(company, start, end):
     #calculation of abnormal returns utilizing an ols regressed market model
     rolling_cov100 = df.daily_returns.rolling(window=100).cov(df.daily_returns_index, pairwise=True) #covariance between returns of stock and index
     rolling_varIndex100 = df.daily_returns.rolling(window=100).var() #variance of returns of stock (independent varible)
-    b = rolling_cov100 / rolling_varIndex100 #calculation of bata
-    a = df.daily_returns.rolling(window=100).mean() - b * df.daily_returns_index.rolling(window=100).mean() #calculation of the intercept
-    daily_returns_hat = a + b * df.daily_returns_index #calculation of the estimated daily returns
+    b = rolling_cov100 / rolling_varIndex100 #estimation of beta
+    a = df.daily_returns.rolling(window=100).mean() - b * df.daily_returns_index.rolling(window=100).mean() #astimation of an intercept
+    daily_returns_hat = a.shift(1) + b.shift(1) * df.daily_returns_index #estimation of daily return
     df['abnormal_returns'] = df.daily_returns - daily_returns_hat #abnormal returns = the difference between est. returns and actual returns
 
     # calculation of simple abnormal returns as the difference between stock returns and index returns
@@ -63,10 +63,10 @@ def daily_yield(company, start, end):
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
 
     # calculation of stadartized trading volumes
-    volume_dollar = df['Volume'] * df['Close']
-    rolling_mean = volume_dollar.rolling(window=21).mean()
-    rolling_std = volume_dollar.rolling(window=21).std()
-    df['volume_std'] = (volume_dollar-rolling_mean)/rolling_std
+    df['volume_dollar'] = df['Volume'] * df['Close']
+    rolling_mean = df.volume_dollar.rolling(window=21).mean()
+    rolling_std = df.volume_dollar.rolling(window=21).std()
+    df['volume_std'] = (df.volume_dollar-rolling_mean)/rolling_std
 
     # extract relevant time period
     df['Date'] = pd.to_datetime(df['Date'])
@@ -451,17 +451,15 @@ def main_correlation_weekly(company, sent_dict):
 
     df_sent = pd.DataFrame(weekly).set_index('cw')
 
-    tc_mean = df_sent['tweet_count'].mean()
-    tc_std = df_sent['tweet_count'].std()
-    df_sent['tweet_count_std'] = (df_sent['tweet_count'] - tc_mean) / tc_std
+    tc_mean = df_sent['news_count'].mean()
+    tc_std = df_sent['news_count'].std()
+    df_sent['news_count_std'] = (df_sent['news_count'] - tc_mean) / tc_std
 
 
     df_stock = weekly_return(company)
     df_stock = df_stock.loc[(df_stock.cw.isin(df_sent.index)) & (df_stock.Date.dt.year == 2018)].set_index('cw')
 
     return pd.concat([df_sent, df_stock], axis=1)
-
-
 
 def c2c_allstocks(list_of_companies, vol_min, sentiment_dict):
     dataframes = []
@@ -482,11 +480,11 @@ if __name__ == "__main__":
     HE = 'SentimentHE'
     TB = 'SentimentTB'
 
-    list_of_dicts = [GI]
+    list_of_dicts = [GI, HE, LM]
 
     # Define companies you'd like to analyze
     companies = ['$MSFT', '$MMM', '$AXP', '$AAPL', '$BA', '$CAT', '$CVX', '$CSCO', '$KO', '$DWDP', '$DIS',
-                '$XOM', '$GS', '$HD', '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG',
+                '$XOM', '$GE', '$GS', '$HD',  '$IBM', '$INTC', '$JNJ', '$JPM', '$MCD', '$MRK', '$NKE', '$PFE', '$PG',
                 '$TRV', '$UTX', '$UNH', '$VZ', '$V', '$WMT']
     companies = [company.replace('$', '') for company in companies]
 

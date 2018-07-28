@@ -61,23 +61,16 @@ def daily_yield(company, start, end):
     df = pd.concat([df_stock, df_index['daily_returns_index']], axis=1)
 
     # calculating abnormal returns
-    '''Alternative One: Calculating ols regressed abnormal returns manually over variances and covariance of the variables'''
-    #df.rolling_cov100 = pd.rolling_cov(arg1=df.daily_returns, arg2=df.daily_returns_index, window=100, min_periods=100)
-    #df.rolling_varIndex100 = pd.rolling_var(df.daily_returns_index, window=100)
-    #beta = df.rolling_cov100 / df.rolling_varIndex100
-    #df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index'] * beta
+    #calculation of abnormal returns utilizing an ols regressed market model
+    rolling_cov100 = df.daily_returns.rolling(window=100).cov(df.daily_returns_index, pairwise=True) #covariance between returns of stock and index
+    rolling_varIndex100 = df.daily_returns.rolling(window=100).var() #variance of returns of stock (independent varible)
+    b = rolling_cov100 / rolling_varIndex100 #estimation of beta
+    a = df.daily_returns.rolling(window=100).mean() - b * df.daily_returns_index.rolling(window=100).mean() #astimation of an intercept
+    daily_returns_hat = a.shift(1) + b.shift(1) * df.daily_returns_index #estimation of daily return
+    df['abnormal_returns'] = df.daily_returns - daily_returns_hat #abnormal returns = the difference between est. returns and actual returns
 
-    '''Alternative Two: Calculating ols regressed abnormal returns over the rolling ols module of pandas'''
-    #model = pd.stats.ols.MovingOLS(y=df.daily_returns, x=df.daily_returns_index,
-    #                               window_type='rolling', window=100, intercept=True)
-    #returns_est = model.y_predict
-    #df['abnormal_returns'] = df['daily_returns'] - returns_est
-
-    '''Alternative Three: since these freakin dickheads seem to depricate every fucking method that ever made pandas a great module
-    we have to use a much simpler and also quite shitty approach of calculating abnormal returns. No ols regressed abnormal return
-    just a simple subtraction of the daily index return. FUCK OFF, WHY THE HACK ONE WEEK BEFORE I HAVE TO FUCKING FINISH THIS THESIS?
-    WHY?'''
-    df['abnormal_returns'] = df['daily_returns'] - df['daily_returns_index']
+    # calculation of simple abnormal returns as the difference between stock returns and index returns
+    df['abnormal_returns_simple'] = df['daily_returns'] - df['daily_returns_index']
 
     #calculating parks volatility
     df['volatility_parks'] = ((np.log(df['High']-np.log(df['Low'])))**2) / (4 * np.log(2))
@@ -738,11 +731,11 @@ if __name__ == "__main__":
     file_path = 'C:\\Users\\jonas\\Documents\\BA_JonasIls\\Twitter_Streaming\\Sentiment_Dataframes\\20180101_20180410\\20180101_20180410_SentimentDataframes_{}'
 
     main_correlation_stockwise(list_of_companies= companies,
-                               list_of_dicts = [HE],
+                               list_of_dicts = [HE, GI, LM],
                                list_of_corr_var_sent = ['bullishness_a', 'bullishness_d', 'bullishness_b', 'bullishness', 'bullishness_w_d',
                                                         'sent_mean_w_a', 'sent_mean_w_d', 'sent_mean_w_b', 'sent_mean_w'],
                                corr_var_stock='abnormal_returns',
-                               percentile_tweetcount=50,
+                               percentile_tweetcount=0,
                                sent_min=0,
                                sentiment_filter=True,
                                volume_filter=True)
